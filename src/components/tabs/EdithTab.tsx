@@ -339,7 +339,19 @@ export const EdithTab: React.FC = React.memo(() => {
                     : 'bg-surface-2 border border-border text-text-1 rounded-bl-md'
                   }`}>
                   {msg.role === 'assistant' ? (
-                    <div className="selectable prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-text-1 [&_code]:bg-surface-3 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent [&_code]:text-xs [&_table]:w-full [&_table]:my-2 [&_th]:border [&_th]:border-border [&_th]:bg-surface-3 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1">
+                    <div className="selectable prose prose-sm dark:prose-invert max-w-none 
+                      [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 
+                      /* Text colors for different themes */
+                      text-text-1 dark:text-[#EEEEF5]
+                      /* Ensure headings and strong text follow theme */
+                      [&_strong]:text-text-1 dark:[&_strong]:text-[#EEEEF5]
+                      [&_h1]:text-text-1 dark:[&_h1]:text-[#EEEEF5]
+                      [&_h2]:text-text-1 dark:[&_h2]:text-[#EEEEF5]
+                      [&_h3]:text-text-1 dark:[&_h3]:text-[#EEEEF5]
+                      /* Code and Table styling */
+                      [&_code]:bg-surface-3 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent [&_code]:text-xs 
+                      [&_table]:w-full [&_table]:my-2 [&_th]:border [&_th]:border-border [&_th]:bg-surface-3 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left 
+                      [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
