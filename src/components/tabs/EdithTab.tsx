@@ -177,6 +177,19 @@ export const EdithTab: React.FC = () => {
               <Brain size={16} />
             </button>
           </div>
+          
+          {/* Desktop Thinking Toggle */}
+          <div className="p-3 border-b border-border">
+            <button 
+              onClick={() => setThinkingEnabled(!thinkingEnabled)}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                thinkingEnabled ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-3 hover:bg-surface-2'
+              }`}
+            >
+              <Brain size={14} className={thinkingEnabled ? 'animate-pulse' : ''} />
+              <span className="text-[11px] font-bold uppercase tracking-tight">Deep Thinking</span>
+            </button>
+          </div>
           <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1">
             {sessions.map((s) => (
               <div key={s.id}
