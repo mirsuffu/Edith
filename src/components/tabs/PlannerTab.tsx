@@ -136,7 +136,7 @@ export const PlannerTab: React.FC = () => {
           onClick={() => setCenterDate(toLocalDateStr())}
           className="px-3 py-1 rounded-lg text-xs font-semibold text-text-2 hover:bg-surface-2 transition-colors"
         >
-          This Week
+          {`${formatDisplayDate(dates[0]).replace(/^[a-zA-Z]+,\s*/, '')} — ${formatDisplayDate(dates[dates.length - 1]).replace(/^[a-zA-Z]+,\s*/, '')}`}
         </button>
         <button
           onClick={() => setCenterDate(addDays(centerDate, 7))}
