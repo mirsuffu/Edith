@@ -1,7 +1,9 @@
 import React from 'react';
 import { useAppStore } from '@/store/appStore';
 import { useStats } from '@/hooks/useStats';
-import { Sparkles, Loader, WifiOff, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader, WifiOff, AlertTriangle, RefreshCw } from 'lucide-react';
+import { debouncedFirestoreSync } from '@/services/firestoreService';
+import { toast } from '@/utils/toast';
 
 /**
  * Minimal universal top bar — always visible on all screens.
@@ -22,6 +24,12 @@ export const TopBar: React.FC = () => {
     offline: <WifiOff size={12} className="text-warning" />,
   }[syncStatus];
 
+  const handleManualSync = () => {
+    if (syncStatus === 'syncing') return;
+    debouncedFirestoreSync(0);
+    toast.info('Manual sync triggered...');
+  };
+
   return (
     <div
       className="flex items-center justify-between px-4 py-2.5 shrink-0 relative"
@@ -33,7 +41,16 @@ export const TopBar: React.FC = () => {
         <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">
           days left
         </span>
-        {syncIcon && <span className="ml-1">{syncIcon}</span>}
+        <div className="flex items-center gap-1 ml-1">
+          {syncIcon && <span>{syncIcon}</span>}
+          <button
+            onClick={handleManualSync}
+            className="p-1 rounded-md hover:bg-surface-2 text-text-3 hover:text-accent transition-colors"
+            title="Sync manual data"
+          >
+            <RefreshCw size={10} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Center: Student name (if set) */}

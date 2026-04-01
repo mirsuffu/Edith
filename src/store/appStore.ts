@@ -42,6 +42,7 @@ const defaultAppData: AppData = {
   fullScreenEnabled: false,
   pacingAlertThreshold: DEFAULT_PACE_ALERT_THRESHOLD,
   lastWelcomeShownDate: null,
+  thinkingEnabled: false,
   updatedAt: new Date().toISOString(),
 };
 
@@ -90,6 +91,7 @@ interface AppStore {
   setPacingAlertThreshold: (val: number) => void;
   setNotificationsEnabled: (val: boolean) => void;
   setFullScreenEnabled: (val: boolean) => void;
+  setThinkingEnabled: (val: boolean) => void;
 
   // Config
   updateSubjectConfig: (subject: SubjectKey, field: 'lectures' | 'revisions', value: number) => void;
@@ -240,6 +242,7 @@ const migrateData = (raw: Record<string, unknown>): AppData => {
     fullScreenEnabled: r.fullScreenEnabled ?? false,
     pacingAlertThreshold: r.pacingAlertThreshold ?? DEFAULT_PACE_ALERT_THRESHOLD,
     lastWelcomeShownDate: r.lastWelcomeShownDate || null,
+    thinkingEnabled: r.thinkingEnabled ?? false,
     updatedAt: r.updatedAt || new Date().toISOString(),
   };
 };
@@ -269,7 +272,7 @@ export const useAppStore = create<AppStore>()(
       data: stored || { ...defaultAppData },
 
       // UI
-      activeTab: 'tracker' as TabName,
+      activeTab: 'planner' as TabName,
       activeGroup: 'g1' as GroupId,
       showWelcomeModal: false,
       showTodayModal: false,
@@ -349,6 +352,11 @@ export const useAppStore = create<AppStore>()(
 
       setFullScreenEnabled: (val) => set((s) => {
         s.data.fullScreenEnabled = val;
+        s.data.updatedAt = new Date().toISOString();
+        saveToLocalStorage(s.data);
+      }),
+      setThinkingEnabled: (val: boolean) => set((s) => {
+        s.data.thinkingEnabled = val;
         s.data.updatedAt = new Date().toISOString();
         saveToLocalStorage(s.data);
       }),

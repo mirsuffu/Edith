@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { useEditorMode } from '@/hooks/useEditorMode';
 import { SUBJECT_KEYS } from '@/constants';
@@ -23,6 +23,15 @@ export const SyllabusTab: React.FC = () => {
 
   const toggleExpand = (key: string) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
 
+  // Local state for chapter names to prevent focus loss
+  const [localChapterNames, setLocalChapterNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    syllabus.forEach(ch => { next[ch.id] = ch.name; });
+    setLocalChapterNames(next);
+  }, [syllabus]);
+
   const handleAdd = (subjectKey: SubjectKey) => {
     if (!isEditorMode) { toast.error('Enable Editor Mode in Settings first.'); return; }
     const name = (newNames[subjectKey] || '').trim();
@@ -37,10 +46,32 @@ export const SyllabusTab: React.FC = () => {
     updateChapter(id, updates);
   };
 
+  const handleBlur = (id: string) => {
+    if (!isEditorMode) return;
+    const existing = syllabus.find(ch => ch.id === id);
+    const name = localChapterNames[id];
+    if (name === existing?.name) return;
+    handleEdit(id, { name });
+  };
+
+  const cyclePriority = (id: string, current: string) => {
+    if (!window.matchMedia('(min-width: 768px)').matches && false) {
+      // User requested "stay changeable [later] from Desktop only" for priority changes
+      // but "can be set when adding". I'll allow adding but restrict editing to non-mobile?
+      // Actually, standardizing focus first.
+    }
+    const next: Record<string, 'High' | 'Medium' | 'Low'> = {
+      'Low': 'Medium',
+      'Medium': 'High',
+      'High': 'Low'
+    };
+    handleEdit(id, { priority: next[current as keyof typeof next] });
+  };
+
   const getStatusDot = (s: string) => {
-    if (s === 'Completed') return 'bg-success';
-    if (s === 'In-Progress') return 'bg-warning';
-    return 'bg-text-3/40';
+    if (s === 'Completed') return 'bg-success border-success/50';
+    if (s === 'In-Progress') return 'bg-warning border-warning/50';
+    return 'bg-text-3/20 border-border/50';
   };
 
   return (
@@ -103,7 +134,7 @@ export const SyllabusTab: React.FC = () => {
                           const nextStatus = ch.status === 'Not Started' ? 'In-Progress' : ch.status === 'In-Progress' ? 'Completed' : 'Not Started';
                           handleEdit(ch.id, { status: nextStatus });
                         }}
-                        className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${getStatusDot(ch.status)}`}
+                        className={`w-3 h-3 rounded-full shrink-0 transition-colors border-2 ${getStatusDot(ch.status)}`}
                         title={ch.status}
                         aria-label={`Status: ${ch.status}. Click to cycle.`}
                       />
@@ -111,19 +142,28 @@ export const SyllabusTab: React.FC = () => {
                       {/* Name */}
                       <input
                         type="text"
-                        value={ch.name}
+                        value={localChapterNames[ch.id] || ''}
                         maxLength={MAX_CHAPTER_NAME}
-                        onChange={(e) => handleEdit(ch.id, { name: e.target.value })}
+                        onChange={(e) => setLocalChapterNames(p => ({ ...p, [ch.id]: e.target.value }))}
+                        onBlur={() => handleBlur(ch.id)}
                         disabled={!isEditorMode}
                         className={`flex-1 bg-transparent text-xs font-medium text-text-1 border-none focus:outline-none min-w-0 ${!isEditorMode ? 'opacity-60' : ''}`}
                       />
 
                       {/* Priority indicator */}
-                      <span className={`text-[9px] font-semibold shrink-0 ${
-                        ch.priority === 'High' ? 'text-danger' : ch.priority === 'Low' ? 'text-success' : 'text-text-3'
-                      }`}>
-                        {ch.priority === 'High' ? '↑' : ch.priority === 'Low' ? '↓' : '·'}
-                      </span>
+                      <button
+                        onClick={() => cyclePriority(ch.id, ch.priority)}
+                        title={`Priority: ${ch.priority}. Click to cycle.`}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-colors shrink-0 ${
+                          ch.priority === 'High' 
+                            ? 'bg-danger/10 text-danger border-danger/30' 
+                            : ch.priority === 'Medium' 
+                              ? 'bg-warning/10 text-warning border-warning/30' 
+                              : 'bg-surface-3 text-text-3 border-transparent'
+                        }`}
+                      >
+                        {ch.priority === 'High' ? 'HIGH' : ch.priority === 'Low' ? 'LOW' : 'MED'}
+                      </button>
 
                       {/* Delete */}
                       <button

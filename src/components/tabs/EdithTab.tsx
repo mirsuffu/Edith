@@ -7,7 +7,7 @@ import { isAIConfigured } from '@/config/ai';
 import { generateId } from '@/utils/dates';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
 import type { ChatSession, ChatMessage } from '@/types';
-import { Send, Plus, Brain, Trash2, MessageSquare, X, Square } from 'lucide-react';
+import { Send, Plus, Brain, Trash2, MessageSquare, X, Square, ChevronDown, ChevronUp } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,6 +31,8 @@ export const EdithTab: React.FC = () => {
   const edithMemory = data.edithMemory;
   const setEdithMemory = useAppStore((s) => s.setEdithMemory);
   const setPendingToolCall = useAppStore((s) => s.setPendingToolCall);
+  const thinkingEnabled = data.thinkingEnabled;
+  const setThinkingEnabled = useAppStore((s) => s.setThinkingEnabled);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -137,7 +139,12 @@ export const EdithTab: React.FC = () => {
       }
     } catch (e: any) {
       if (e.name !== 'AbortError') {
-        const errMsg: ChatMessage = { id: generateId(), role: 'assistant', content: 'Failed to get response. Check your connection.', timestamp: new Date().toISOString() };
+        const errMsg: ChatMessage = { 
+          id: generateId(), 
+          role: 'assistant', 
+          content: 'Edith is disconnected from Suffu\'s Mind, Wait a while and try again', 
+          timestamp: new Date().toISOString() 
+        };
         addMessage(sessionId!, errMsg);
       }
     } finally {
@@ -202,6 +209,17 @@ export const EdithTab: React.FC = () => {
             <button onClick={() => setShowMemory(true)} className="p-2 rounded-xl border border-border hover:bg-surface-2 text-text-2">
               <Brain size={16} />
             </button>
+            {/* Thinking Toggle */}
+            <button 
+              onClick={() => setThinkingEnabled(!thinkingEnabled)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all ${
+                thinkingEnabled ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-3 hover:bg-surface-2'
+              }`}
+              title="Toggle Deep Thinking"
+            >
+              <Brain size={14} className={thinkingEnabled ? 'animate-pulse' : ''} />
+              <span className="text-[10px] font-bold uppercase tracking-tight hidden sm:inline">Thinking</span>
+            </button>
           </div>
 
           {/* Mobile sessions dropdown */}
@@ -241,7 +259,7 @@ export const EdithTab: React.FC = () => {
                 }`}>
                   {msg.role === 'assistant' ? (
                     <div className="selectable prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-text-1 [&_code]:bg-surface-3 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent [&_code]:text-xs [&_table]:w-full [&_table]:my-2 [&_th]:border [&_th]:border-border [&_th]:bg-surface-3 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      <AssistantMessage content={msg.content} />
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap selectable">{msg.content}</div>
@@ -354,5 +372,36 @@ export const EdithTab: React.FC = () => {
         message="Delete this chat with E.D.I.T.H? Those messages aren't coming back 🪦"
       />
     </div>
+  );
+};
+
+const AssistantMessage: React.FC<{ content: string }> = ({ content }) => {
+  const [showThoughts, setShowThoughts] = useState(false);
+  
+  const thoughtMatch = content.match(/<thought>([\s\S]*?)<\/thought>/);
+  const thoughts = thoughtMatch ? thoughtMatch[1].trim() : null;
+  const actualResponse = content.replace(/<thought>([\s\S]*?)<\/thought>/, '').trim();
+
+  return (
+    <>
+      {thoughts && (
+        <div className="mb-3 border-l-2 border-accent/20 pl-3">
+          <button 
+            onClick={() => setShowThoughts(!showThoughts)}
+            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-accent/60 hover:text-accent transition-colors mb-1"
+          >
+            <Brain size={12} className={showThoughts ? '' : 'animate-pulse'} />
+            {showThoughts ? 'Hide Thinking Process' : 'Show Thinking Process'}
+            {showThoughts ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
+          {showThoughts && (
+            <div className="text-[11px] text-text-3 italic bg-surface-3/30 p-2 rounded-lg border border-border/30 animate-in fade-in slide-in-from-top-1 duration-200">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{thoughts}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{actualResponse}</ReactMarkdown>
+    </>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { useEditorMode } from '@/hooks/useEditorMode';
 import { SUBJECT_KEYS } from '@/constants';
@@ -13,8 +13,6 @@ const DayCard = memo<{
   today: boolean;
   past: boolean;
 }>(({ date, today, past }) => {
-  useCardPop();
-  
   const config = useAppStore((s) => s.data.config);
   const planner = useAppStore((s) => s.data.progress.planner);
   const updatePlannerEntry = useAppStore((s) => s.updatePlannerEntry);
@@ -24,9 +22,27 @@ const DayCard = memo<{
   const getEntry = (date: string, subject: SubjectKey): PlannerEntry | undefined =>
     planner.find((p) => p.date === date && p.subject === subject);
 
-  const handleNoteChange = (date: string, subject: SubjectKey, note: string) => {
-    if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
+  // Local state to prevent focus loss during typing
+  const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    SUBJECT_KEYS.forEach(k => {
+      next[k] = getEntry(date, k)?.note || '';
+    });
+    setLocalNotes(next);
+  }, [date, planner]);
+
+  const handleNoteChange = (subject: SubjectKey, note: string) => {
+    setLocalNotes(p => ({ ...p, [subject]: note }));
+  };
+
+  const handleBlur = (subject: SubjectKey) => {
+    if (!isEditorMode) return;
     const existing = getEntry(date, subject);
+    const note = localNotes[subject];
+    if (note === (existing?.note || '')) return;
+
     updatePlannerEntry({
       date, subject, note,
       ticked: existing?.ticked || false,
@@ -49,16 +65,21 @@ const DayCard = memo<{
   return (
     <div
       className={`bg-surface border rounded-xl overflow-hidden transition-colors ${
-        today ? 'border-accent/30' : past ? 'border-border opacity-70' : 'border-border'
+        today 
+          ? 'border-success/30 bg-success/5 card-shadow-success' 
+          : past 
+            ? 'border-danger/20 bg-danger/[0.02] opacity-80' 
+            : 'border-border'
       }`}
     >
       {/* Day header */}
       <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-semibold ${
-        today ? 'text-accent bg-accent/5' : past ? 'text-text-3 bg-surface-2/30' : 'text-text-2 bg-surface-2/20'
+        today ? 'text-success bg-success/10' : past ? 'text-danger bg-danger/5' : 'text-text-2 bg-surface-2/20'
       }`}>
         <span className="font-bold">{getDayName(date).slice(0, 3)}</span>
-        <span className="font-mono text-[10px] text-text-3">{date.slice(5)}</span>
-        {today && <span className="text-[9px] bg-accent/12 text-accent px-1.5 py-0.5 rounded-full ml-auto">Today</span>}
+        <span className="font-mono text-[10px] opacity-60">{formatDisplayDate(date)}</span>
+        {today && <span className="text-[9px] bg-success/20 text-success px-1.5 py-0.5 rounded-full ml-auto">Today</span>}
+        {!today && past && <span className="text-[9px] bg-danger/10 text-danger px-1.5 py-0.5 rounded-full ml-auto">Past</span>}
       </div>
 
       {/* Subjects */}
@@ -78,23 +99,28 @@ const DayCard = memo<{
               {/* Note input */}
               <input
                 type="text"
-                value={entry?.note || ''}
-                onChange={(e) => handleNoteChange(date, subj, e.target.value)}
+                value={localNotes[subj] || ''}
+                onChange={(e) => handleNoteChange(subj, e.target.value)}
+                onBlur={() => handleBlur(subj)}
                 placeholder="—"
                 maxLength={50}
+                disabled={!isEditorMode && !entry?.note}
                 className="flex-1 text-[11px] bg-transparent border-none text-text-1 placeholder:text-text-3/30 focus:outline-none min-w-0 py-0.5"
               />
 
-              {/* Tick */}
               <button
                 onClick={() => handleToggleTick(date, subj)}
                 disabled={!entry?.note}
                 className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                  entry?.ticked ? 'bg-success/20 border-success/30 text-success' : entry?.note ? 'border-border hover:border-accent' : 'border-border/30 opacity-20'
+                  entry?.ticked 
+                    ? 'bg-success text-white border-success' 
+                    : entry?.note 
+                      ? 'border-border hover:border-accent bg-surface-3/50' 
+                      : 'border-border/30 opacity-10'
                 }`}
                 aria-label="Toggle done"
               >
-                {entry?.ticked && <Check size={10} />}
+                {entry?.ticked && <Check size={10} strokeWidth={4} />}
               </button>
 
               {/* Notify */}

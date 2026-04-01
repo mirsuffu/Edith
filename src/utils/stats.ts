@@ -58,8 +58,10 @@ export const calculateStats = (
       totalTasks += sub.lectures;
       completedTasks += doneLec;
     } else {
-      totalTasks += sub.lectures + sub.revisions;
-      completedTasks += doneLec + doneRev;
+      // General view: only calculate pace/required units based on LECTURES
+      // Revisions are tracked but not part of the primary "Required Per Day" metric
+      totalTasks += sub.lectures;
+      completedTasks += doneLec;
     }
   });
 
