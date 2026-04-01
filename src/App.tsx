@@ -64,13 +64,12 @@ const App: React.FC = () => {
     if (!user || !fbConfigured) return;
     
     // Subscribe to store changes to trigger sync
-    const unsub = useAppStore.subscribe(
-      (state) => state.data.updatedAt,
-      (updatedAt) => {
-        if (updatedAt) debouncedFirestoreSync();
-      }
-    );
-    return () => unsub();
+     const unsub = useAppStore.subscribe(
+       (state) => {
+         if (state.data.updatedAt) debouncedFirestoreSync();
+       }
+     );
+     return () => unsub();
   }, [user, fbConfigured]);
 
   // Theme

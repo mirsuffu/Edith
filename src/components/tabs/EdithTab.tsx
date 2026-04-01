@@ -133,16 +133,12 @@ export const EdithTab: React.FC = React.memo(() => {
 
   // Fix #8: Persist thinking toggle
   const toggleThinking = useCallback(() => {
-    setThinkingEnabled((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(THINKING_KEY, String(next)); } catch {}
-      return next;
-    });
-  }, []);
+    setThinkingEnabled(!thinkingEnabled);
+  }, [thinkingEnabled, setThinkingEnabled]);
 
   const toggleWebSearch = useCallback(() => {
-    setWebSearchEnabled((prev) => !prev);
-  }, []);
+    setWebSearchEnabled(!webSearchEnabled);
+  }, [webSearchEnabled, setWebSearchEnabled]);
 
   const createNewSession = () => {
     const session: ChatSession = {
