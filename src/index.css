@@ -27,8 +27,8 @@
   --surface: rgba(255, 255, 255, 0.80);
   --surface-2: rgba(245, 243, 240, 0.90);
   --surface-3: rgba(238, 236, 232, 0.85);
-  --border: rgba(0, 0, 0, 0.06);
-  --border-2: rgba(0, 0, 0, 0.10);
+  --border: rgba(0, 0, 0, 0.12);
+  --border-2: rgba(0, 0, 0, 0.18);
   --text-1: #0F0F1A;
   --text-2: #4A4A6A;
   --text-3: #9090B0;

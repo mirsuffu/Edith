@@ -84,9 +84,9 @@ const DayCard = memo<{
 
   // Fix #3: Card-level highlight — green for today, red for past
   const cardBg = today
-    ? 'bg-success/[0.04] border-success/30'
+    ? 'bg-success/10 border-success/40'
     : past
-      ? 'bg-danger/[0.04] border-danger/20 opacity-70'
+      ? 'bg-danger/10 border-danger/30'
       : 'bg-surface border-border';
 
   return (
@@ -130,8 +130,8 @@ const DayCard = memo<{
                   entry?.ticked
                     ? 'bg-success/20 border-success text-success'
                     : entry?.note
-                      ? 'border-text-3/40 hover:border-accent text-transparent hover:text-accent/30'
-                      : 'border-border/20 opacity-20'
+                      ? 'border-text-3/60 hover:border-accent text-transparent hover:text-accent/30'
+                      : 'border-border/30 opacity-30'
                 }`}
                 aria-label="Toggle done"
               >
