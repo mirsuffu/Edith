@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/EDITH---CA-Inter-Tracker/sw.js', { scope: '/EDITH---CA-Inter-Tracker/' })})}
