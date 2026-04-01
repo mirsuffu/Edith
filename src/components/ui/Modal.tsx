@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { playPop } from '@/hooks/useSounds';
 
 interface ModalProps {
   open: boolean;
@@ -13,6 +14,11 @@ export const Modal: React.FC<ModalProps> = ({
   open, onClose, title, children, maxWidth = 'max-w-xl',
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Play pop sound when modal opens
+  useEffect(() => {
+    if (open) playPop();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

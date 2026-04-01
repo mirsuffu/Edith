@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useEffect, useRef, useCallback, Suspense, lazy } from 'react';
+import { playClick } from '@/hooks/useSounds';
 import { useAppStore } from '@/store/appStore';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginScreen } from '@/components/auth/LoginScreen';
@@ -111,6 +112,18 @@ const App: React.FC = () => {
   // Service worker
   useEffect(() => { registerServiceWorker(); }, []);
 
+  // Global click sound — fires on interactive elements
+  const handleGlobalClick = useCallback((e: MouseEvent) => {
+    const el = (e.target as HTMLElement)?.closest?.(
+      'button, a, [role="tab"], [role="button"], input[type="checkbox"], input[type="radio"], select, .toggle-track, [data-clickable]'
+    );
+    if (el) playClick();
+  }, []);
+  useEffect(() => {
+    document.addEventListener('click', handleGlobalClick, true);
+    return () => document.removeEventListener('click', handleGlobalClick, true);
+  }, [handleGlobalClick]);
+
   // Firestore sync
   const data = useAppStore((s) => s.data);
   const user = useAppStore((s) => s.user);
@@ -163,7 +176,7 @@ const App: React.FC = () => {
       <div className="flex flex-1 min-h-0">
         <SideRail />
 
-        <main className="flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-2 relative" style={{ zIndex: 2 }}>
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 md:px-5 py-2 pb-20 md:pb-2 relative" style={{ zIndex: 2 }}>
           <Suspense fallback={<TabFallback />}>
             {renderTab()}
           </Suspense>
