@@ -50,3 +50,28 @@ export function playPop() {
     a.play().catch(() => {});
   } catch { /* silent */ }
 }
+
+import { useEffect, useRef } from 'react';
+
+let mountCounter = 0;
+let lastMountTime = 0;
+
+export function useCardPop() {
+  const hasPopped = useRef(false);
+  useEffect(() => {
+    if (hasPopped.current) return;
+    hasPopped.current = true;
+
+    const now = Date.now();
+    if (now - lastMountTime > 100) {
+      mountCounter = 0;
+    }
+    lastMountTime = now;
+
+    const idx = mountCounter++;
+    const delay = Math.min(idx * 50, 400);
+    const t = setTimeout(() => playPop(), delay);
+    return () => clearTimeout(t);
+  }, []);
+}
+

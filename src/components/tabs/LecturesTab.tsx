@@ -3,6 +3,7 @@ import { useAppStore } from '@/store/appStore';
 import { SUBJECT_KEYS } from '@/constants';
 import type { SubjectKey, SubjectConfig } from '@/types';
 import { Minus, Plus } from 'lucide-react';
+import { useCardPop } from '@/hooks/useSounds';
 
 /** Compact subject progress card */
 const SubjectCard = memo<{
@@ -12,6 +13,7 @@ const SubjectCard = memo<{
   category: 'lectures' | 'revisions';
   index: number;
 }>(({ subjectKey, subject, current, category, index }) => {
+  useCardPop();
   const updateProgress = useAppStore((s) => s.updateProgress);
   const max = subject[category];
   const pct = max > 0 ? (current / max) * 100 : 0;
