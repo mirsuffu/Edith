@@ -112,21 +112,29 @@ const App: React.FC = () => {
   // Service worker
   useEffect(() => { registerServiceWorker(); }, []);
 
-  // Global click sound — fires on interactive elements
+  // Global state
+  const data = useAppStore((s) => s.data);
+  const user = useAppStore((s) => s.user);
+
+  // Global click & Fullscreen logic
   const handleGlobalClick = useCallback((e: MouseEvent) => {
+    // Attempt to enter fullscreen on first interaction if setting is enabled
+    if (data.fullScreenEnabled && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
     const el = (e.target as HTMLElement)?.closest?.(
       'button, a, [role="tab"], [role="button"], input[type="checkbox"], input[type="radio"], select, .toggle-track, [data-clickable]'
     );
     if (el) playClick();
-  }, []);
+  }, [data.fullScreenEnabled]);
+
   useEffect(() => {
     document.addEventListener('click', handleGlobalClick, true);
     return () => document.removeEventListener('click', handleGlobalClick, true);
   }, [handleGlobalClick]);
 
   // Firestore sync
-  const data = useAppStore((s) => s.data);
-  const user = useAppStore((s) => s.user);
   useEffect(() => {
     if (user && isFirebaseConfigured) debouncedFirestoreSync();
   }, [data.updatedAt, user]);

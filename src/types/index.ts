@@ -183,6 +183,7 @@ export interface AppData {
   edithChatSessions: ChatSession[];
   activeEdithSessionId: string | null;
   notificationsEnabled: boolean;
+  fullScreenEnabled?: boolean;
   pacingAlertThreshold: number;
   lastWelcomeShownDate: string | null;
   updatedAt: string;

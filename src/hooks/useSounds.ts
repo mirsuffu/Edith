@@ -10,45 +10,56 @@
 
 const BASE = import.meta.env.BASE_URL;
 
-/* ── tiny audio-pool (avoids overlapping-playback glitches) ── */
+/* ── Zero-latency Web Audio API ── */
 
-function createPool(src: string, size = 4): HTMLAudioElement[] {
-  return Array.from({ length: size }, () => {
-    const a = new Audio(`${BASE}sounds/${src}`);
-    a.preload = 'auto';
-    a.volume = 0.35;
-    return a;
-  });
+let audioCtx: AudioContext | null = null;
+let clickBuffer: AudioBuffer | null = null;
+let popBuffer: AudioBuffer | null = null;
+
+function initAudio() {
+  if (typeof window === 'undefined') return;
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioCtx = new AudioContextClass();
+
+    fetch(`${BASE}sounds/click.mp3`)
+      .then(r => r.arrayBuffer())
+      .then(b => audioCtx!.decodeAudioData(b))
+      .then(buf => { clickBuffer = buf; })
+      .catch(() => {});
+
+    fetch(`${BASE}sounds/pop.mp3`)
+      .then(r => r.arrayBuffer())
+      .then(b => audioCtx!.decodeAudioData(b))
+      .then(buf => { popBuffer = buf; })
+      .catch(() => {});
+  }
 }
 
-let clickPool: HTMLAudioElement[] | null = null;
-let popPool: HTMLAudioElement[] | null = null;
-let clickIdx = 0;
-let popIdx = 0;
+function playBuffer(buffer: AudioBuffer | null) {
+  if (!audioCtx) initAudio();
+  if (!audioCtx || !buffer) return;
+  
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
 
-function ensurePools() {
-  if (!clickPool) clickPool = createPool('click.mp3', 4);
-  if (!popPool) popPool = createPool('pop.mp3', 6);
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.35;
+  source.connect(gain);
+  gain.connect(audioCtx.destination);
+  source.start(0);
 }
 
 export function playClick() {
-  try {
-    ensurePools();
-    const a = clickPool![clickIdx % clickPool!.length];
-    clickIdx++;
-    a.currentTime = 0;
-    a.play().catch(() => {});
-  } catch { /* silent */ }
+  try { playBuffer(clickBuffer); } catch {}
 }
 
 export function playPop() {
-  try {
-    ensurePools();
-    const a = popPool![popIdx % popPool!.length];
-    popIdx++;
-    a.currentTime = 0;
-    a.play().catch(() => {});
-  } catch { /* silent */ }
+  try { playBuffer(popBuffer); } catch {}
 }
 
 import { useEffect, useRef } from 'react';

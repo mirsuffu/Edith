@@ -39,6 +39,7 @@ const defaultAppData: AppData = {
   edithChatSessions: [],
   activeEdithSessionId: null,
   notificationsEnabled: false,
+  fullScreenEnabled: false,
   pacingAlertThreshold: DEFAULT_PACE_ALERT_THRESHOLD,
   lastWelcomeShownDate: null,
   updatedAt: new Date().toISOString(),
@@ -88,6 +89,7 @@ interface AppStore {
   setLastExported: (date: string | null) => void;
   setPacingAlertThreshold: (val: number) => void;
   setNotificationsEnabled: (val: boolean) => void;
+  setFullScreenEnabled: (val: boolean) => void;
 
   // Config
   updateSubjectConfig: (subject: SubjectKey, field: 'lectures' | 'revisions', value: number) => void;
@@ -235,6 +237,7 @@ const migrateData = (raw: Record<string, unknown>): AppData => {
     edithChatSessions: Array.isArray(r.edithChatSessions) ? r.edithChatSessions : [],
     activeEdithSessionId: r.activeEdithSessionId || null,
     notificationsEnabled: r.notificationsEnabled ?? false,
+    fullScreenEnabled: r.fullScreenEnabled ?? false,
     pacingAlertThreshold: r.pacingAlertThreshold ?? DEFAULT_PACE_ALERT_THRESHOLD,
     lastWelcomeShownDate: r.lastWelcomeShownDate || null,
     updatedAt: r.updatedAt || new Date().toISOString(),
@@ -340,6 +343,12 @@ export const useAppStore = create<AppStore>()(
 
       setNotificationsEnabled: (val) => set((s) => {
         s.data.notificationsEnabled = val;
+        s.data.updatedAt = new Date().toISOString();
+        saveToLocalStorage(s.data);
+      }),
+
+      setFullScreenEnabled: (val) => set((s) => {
+        s.data.fullScreenEnabled = val;
         s.data.updatedAt = new Date().toISOString();
         saveToLocalStorage(s.data);
       }),

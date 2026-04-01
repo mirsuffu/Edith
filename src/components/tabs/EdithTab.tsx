@@ -157,7 +157,7 @@ export const EdithTab: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col pb-16 md:pb-0 tab-content-enter">
+    <div className="h-full flex flex-col tab-content-enter">
       <div className="flex flex-1 min-h-0">
         {/* Sidebar (desktop) */}
         <div className="hidden md:flex flex-col w-56 border-r border-border shrink-0">

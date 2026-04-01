@@ -186,6 +186,13 @@ export const SettingsTab: React.FC = () => {
               <Button size="sm" variant="danger" onClick={handleSignOut}><LogOut size={14} /> Sign Out</Button>
             </div>
           )}
+          <div className="pt-2 border-t border-border/50">
+            <Toggle 
+              checked={!!data.fullScreenEnabled} 
+              onChange={useAppStore.getState().setFullScreenEnabled} 
+              label="Launch App in Full Screen" 
+            />
+          </div>
         </div>
       </Section>
 
