@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 export default defineConfig({
-  base: '/EDITH---CA-Inter-Tracker/',
+  base: '/Edith/',
   plugins: [
     react(),
     VitePWA({
@@ -18,7 +18,7 @@ export default defineConfig({
         background_color: '#09090F',
         display: 'standalone',
         orientation: 'portrait-primary',
-        start_url: '/',
+        start_url: '/Edith/',
         icons: [
           {
             src: 'icons/icon-192.png',
