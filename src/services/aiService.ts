@@ -146,9 +146,14 @@ export const sendChatMessage = async (
           tools: filteredTools.length > 0 ? filteredTools : undefined,
           tool_choice: filteredTools.length > 0 ? 'auto' : undefined,
           max_tokens: thinkingEnabled ? 4096 : 2048,
-          temperature: thinkingEnabled ? 0.3 : 0.7,
-          // Task #5: Official thinking flag for Nemotron 120B
+          temperature: 1,
+          top_p: 1,
+          // Task #5: Official thinking flag and extra_body config for NVIDIA
           enable_thinking: thinkingEnabled,
+          extra_body: thinkingEnabled ? {
+            reasoning_budget: 4096,
+            chat_template_kwargs: { enable_thinking: true }
+          } : undefined
         }),
         signal,
       });
