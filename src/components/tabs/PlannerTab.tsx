@@ -64,12 +64,12 @@ const DayCard = memo<{
 
   return (
     <div
-      className={`bg-surface border rounded-xl overflow-hidden transition-colors ${
+      className={`border rounded-xl overflow-hidden transition-all duration-300 ${
         today 
-          ? 'border-success/30 bg-success/5 card-shadow-success' 
+          ? 'border-success/40 bg-success/10 card-shadow-success shadow-[0_0_15px_rgba(34,197,94,0.1)]' 
           : past 
-            ? 'border-danger/20 bg-danger/[0.02] opacity-80' 
-            : 'border-border'
+            ? 'border-danger/30 bg-danger/[0.05] opacity-90' 
+            : 'bg-surface border-border'
       }`}
     >
       {/* Day header */}
