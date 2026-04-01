@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="80" fill="#09090F"/>
+  <rect x="20" y="20" width="472" height="472" rx="60" fill="#10101A" stroke="#252538" stroke-width="2"/>
+  <text x="256" y="200" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="800" font-size="72" fill="#6366F1">E.D.I.T.H</text>
+  <text x="256" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="600" font-size="28" fill="#9898B0">CA Study Tracker</text>
+  <circle cx="256" cy="360" r="40" fill="#6366F1" opacity="0.15"/>
+  <path d="M240 345 L256 375 L272 345 Z" fill="#6366F1"/>
+</svg>
