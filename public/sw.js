@@ -131,6 +131,12 @@ self.addEventListener('notificationclick', (event) => {
 self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {};
 
+  if (type === 'PING') {
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage('pong');
+    }
+  }
+
   if (type === 'SCHEDULE_NOTIFICATION') {
     savePendingNotification(payload).then(() => scheduleNotification(payload));
   }

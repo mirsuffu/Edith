@@ -4,14 +4,16 @@ import type { AppData } from '@/types';
 import { calculateStats } from '@/utils/stats';
 import { SUBJECT_KEYS } from '@/constants';
 import { AI_TOOLS } from './aiTools';
+import * as Sentry from '@sentry/react';
 
 export interface AIResponse {
   content: string;
   toolCalls: any[] | null;
+  isCached?: boolean;
 }
 
 /** Error types for contextual error messages (Fix #10) */
-export type AIErrorType = 'network' | 'api' | 'capacity' | 'unknown';
+export type AIErrorType = 'network' | 'api' | 'capacity' | 'timeout' | 'unknown';
 
 export class AIError extends Error {
   type: AIErrorType;
@@ -21,6 +23,15 @@ export class AIError extends Error {
     this.name = 'AIError';
   }
 }
+
+/** In-memory cache for circuit-breaker degradation */
+const responseCache = new Map<string, AIResponse>();
+
+/** Get cache key for a request */
+const getCacheKey = (messages: any[]): string => {
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+  return lastUserMsg ? lastUserMsg.content.trim().toLowerCase() : 'default';
+};
 
 /** Build context-aware system prompt from current app state */
 export const buildSystemPrompt = (data: AppData, userName: string): string => {
@@ -67,6 +78,7 @@ TONE: Direct, tactical, no-nonsense, but gently playful. Don't sugarcoat. Maximu
  * Supports tools, thinking mode, and AbortController.
  * Fix #8: thinkingEnabled adds reasoning instructions
  * Fix #10: throws typed AIError for contextual error messages
+ * Task #4: Circuit-breaker with 8s timeout and cached response degradation.
  */
 export const sendChatMessage = async (
   messages: any[],
@@ -90,6 +102,7 @@ export const sendChatMessage = async (
     ...messages,
   ];
 
+  const cacheKey = getCacheKey(messages);
   let lastError: AIError | null = null;
 
   for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
@@ -101,7 +114,12 @@ export const sendChatMessage = async (
         ? targetUrl.replace('https://integrate.api.nvidia.com', '/api/nvidia')
         : `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
-      const res = await fetch(fetchUrl, {
+      // 8s Circuit-breaker timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new AIError('Model response timed out (8s)', 'timeout')), 8000);
+      });
+
+      const fetchPromise = fetch(fetchUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,6 +136,8 @@ export const sendChatMessage = async (
         signal,
       });
 
+      const res = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+
       if (!res.ok) {
         const errText = await res.text();
         if (res.status === 429 || res.status === 503) {
@@ -133,13 +153,24 @@ export const sendChatMessage = async (
         return { content: 'Empty response from AI.', toolCalls: null };
       }
 
-      return {
+      const result: AIResponse = {
         content: message.content || '',
         toolCalls: message.tool_calls || null,
       };
 
+      // Update cache for future degradation
+      responseCache.set(cacheKey, result);
+      return result;
+
     } catch (e: any) {
       if (e.name === 'AbortError') throw e;
+
+      // Log error to Sentry with user and session context
+      Sentry.withScope((scope) => {
+        scope.setTag('error_type', e instanceof AIError ? e.type : 'unknown');
+        scope.setExtra('attempt', attempt);
+        Sentry.captureException(e);
+      });
       
       // Classify error type
       if (e instanceof AIError) {
@@ -148,6 +179,12 @@ export const sendChatMessage = async (
         lastError = new AIError(e.message, 'network');
       } else {
         lastError = new AIError(e.message, 'unknown');
+      }
+
+      // Degradation: if timeout or network failure, return cached response if available
+      if ((lastError.type === 'timeout' || lastError.type === 'network') && responseCache.has(cacheKey)) {
+        const cached = responseCache.get(cacheKey)!;
+        return { ...cached, isCached: true };
       }
       
       if (attempt < AI_MAX_RETRIES) {

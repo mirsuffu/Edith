@@ -51,10 +51,13 @@ const App: React.FC = () => {
   const authScreen = useAppStore((s) => s.authScreen);
   const activeTab = useAppStore((s) => s.activeTab);
   const themeMode = useAppStore((s) => s.data.themeMode);
+  const fullScreenEnabled = useAppStore((s) => s.data.fullScreenEnabled);
+  const updatedAt = useAppStore((s) => s.data.updatedAt);
   const lastWelcomeShown = useAppStore((s) => s.data.lastWelcomeShownDate);
   const setShowWelcomeModal = useAppStore((s) => s.setShowWelcomeModal);
   const setLastWelcomeShownDate = useAppStore((s) => s.setLastWelcomeShownDate);
   const setSyncStatus = useAppStore((s) => s.setSyncStatus);
+  const user = useAppStore((s) => s.user);
   const prevThemeRef = useRef<string | null>(null);
 
   // Theme
@@ -91,7 +94,7 @@ const App: React.FC = () => {
       setShowWelcomeModal(true);
       setLastWelcomeShownDate(today);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, lastWelcomeShown, fbConfigured, setShowWelcomeModal, setLastWelcomeShownDate]);
 
   // Online/offline
   useEffect(() => {
@@ -107,19 +110,50 @@ const App: React.FC = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [setSyncStatus]);
 
   // Service worker
   useEffect(() => { registerServiceWorker(); }, []);
 
-  // Global state
-  const data = useAppStore((s) => s.data);
-  const user = useAppStore((s) => s.user);
+  // Auto-click for fullscreen activation
+  useEffect(() => {
+    if (!fullScreenEnabled || document.fullscreenElement) return;
+
+    const timer = setTimeout(() => {
+      // Feature detection: bypass if already granted or not supported
+      if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+
+      const autoClickBtn = document.createElement('button');
+      autoClickBtn.style.position = 'fixed';
+      autoClickBtn.style.top = '5%';
+      autoClickBtn.style.left = '50%';
+      autoClickBtn.style.width = '0px';
+      autoClickBtn.style.height = '0px';
+      autoClickBtn.style.opacity = '0';
+      autoClickBtn.style.pointerEvents = 'none';
+      autoClickBtn.setAttribute('aria-hidden', 'true');
+      autoClickBtn.setAttribute('data-auto-click', 'true');
+      
+      document.body.appendChild(autoClickBtn);
+      
+      // Programmatic click
+      autoClickBtn.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        if (document.body.contains(autoClickBtn)) {
+          document.body.removeChild(autoClickBtn);
+        }
+      }, 100);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [fullScreenEnabled]);
 
   // Global click & Fullscreen logic
   const handleGlobalClick = useCallback((e: MouseEvent) => {
     // Attempt to enter fullscreen on first interaction if setting is enabled
-    if (data.fullScreenEnabled && !document.fullscreenElement) {
+    if (fullScreenEnabled && !document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
 
@@ -127,7 +161,7 @@ const App: React.FC = () => {
       'button, a, [role="tab"], [role="button"], input[type="checkbox"], input[type="radio"], select, .toggle-track, [data-clickable]'
     );
     if (el) playClick();
-  }, [data.fullScreenEnabled]);
+  }, [fullScreenEnabled]);
 
   useEffect(() => {
     document.addEventListener('click', handleGlobalClick, true);
@@ -136,8 +170,8 @@ const App: React.FC = () => {
 
   // Firestore sync
   useEffect(() => {
-    if (user && isFirebaseConfigured) debouncedFirestoreSync();
-  }, [data.updatedAt, user]);
+    if (user && fbConfigured) debouncedFirestoreSync();
+  }, [updatedAt, user, fbConfigured]);
 
   // Loading screen
   if (authLoading) {

@@ -41,16 +41,16 @@ const getErrorMessage = (error: any): string => {
   return "Edith is disconnected from Suffu's Mind. Wait a while and try again.";
 };
 
-export const EdithTab: React.FC = () => {
-  const data = useAppStore((s) => s.data);
+export const EdithTab: React.FC = React.memo(() => {
+  const sessions = useAppStore((s) => s.data.edithChatSessions);
+  const activeSessionId = useAppStore((s) => s.data.activeEdithSessionId);
+  const edithMemory = useAppStore((s) => s.data.edithMemory);
   const userName = useAppStore((s) => s.userProfile?.name || 'Student');
-  const sessions = data.edithChatSessions;
-  const activeSessionId = data.activeEdithSessionId;
+  
   const addSession = useAppStore((s) => s.addChatSession);
   const addMessage = useAppStore((s) => s.addChatMessage);
   const setActiveSession = useAppStore((s) => s.setActiveEdithSessionId);
   const deleteSession = useAppStore((s) => s.deleteChatSession);
-  const edithMemory = data.edithMemory;
   const setEdithMemory = useAppStore((s) => s.setEdithMemory);
   const setPendingToolCall = useAppStore((s) => s.setPendingToolCall);
 
@@ -60,6 +60,8 @@ export const EdithTab: React.FC = () => {
   const [memoryDraft, setMemoryDraft] = useState(edithMemory);
   const [showSessions, setShowSessions] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+
   // Fix #8: Thinking toggle
   const [thinkingEnabled, setThinkingEnabled] = useState(() => {
     try { return localStorage.getItem(THINKING_KEY) === 'true'; } catch { return false; }
@@ -74,12 +76,32 @@ export const EdithTab: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeSession?.messages.length, loading]);
 
+  // Stable focus-lock mechanism
+  useEffect(() => {
+    const handleFocusLock = () => {
+      if (isTyping && textareaRef.current && document.activeElement !== textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+    
+    // Check focus every 50ms if typing
+    const interval = isTyping ? setInterval(handleFocusLock, 50) : null;
+    return () => { if (interval) clearInterval(interval); };
+  }, [isTyping]);
+
   // Auto-resize textarea
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (el) {
+      // Use a more stable resize that doesn't trigger layout thrashing
+      const currentHeight = el.style.height;
       el.style.height = 'auto';
-      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+      const newHeight = `${Math.min(el.scrollHeight, 120)}px`;
+      if (currentHeight !== newHeight) {
+        el.style.height = newHeight;
+      } else {
+        el.style.height = currentHeight;
+      }
     }
   }, []);
 
@@ -126,13 +148,14 @@ export const EdithTab: React.FC = () => {
     const userMsg: ChatMessage = { id: generateId(), role: 'user', content: text, timestamp: new Date().toISOString() };
     addMessage(sessionId!, userMsg);
     setInput('');
+    setIsTyping(false);
     setLoading(true);
 
     // Get all messages for context
     const currentSession = useAppStore.getState().data.edithChatSessions.find((s) => s.id === sessionId);
     const messages: any[] = (currentSession?.messages || []).map((m) => ({ role: m.role, content: m.content }));
 
-    const systemPrompt = buildSystemPrompt(data, userName);
+    const systemPrompt = buildSystemPrompt(useAppStore.getState().data, userName);
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -355,7 +378,14 @@ export const EdithTab: React.FC = () => {
             <textarea
               ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (!isTyping) setIsTyping(true);
+              }}
+              onBlur={() => {
+                // Delay setting isTyping to false to allow focus-lock to work
+                setTimeout(() => setIsTyping(false), 100);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -415,4 +445,4 @@ export const EdithTab: React.FC = () => {
       />
     </div>
   );
-};
+}));

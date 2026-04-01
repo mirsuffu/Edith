@@ -31,11 +31,11 @@
   --border-2: rgba(0, 0, 0, 0.18);
   --text-1: #0F0F1A;
   --text-2: #4A4A6A;
-  --text-3: #9090B0;
+  --text-3: #6B6B8A; /* Raised from #9090B0 for 4.8:1 contrast against #F8F7F4 */
   --accent: #4F52E8;
   --accent-glow: rgba(79, 82, 232, 0.10);
   --success: #059669;
-  --warning: #D97706;
+  --warning: #B45309; /* Raised from #D97706 for 4.8:1 contrast against #F8F7F4 */
   --danger: #DC2626;
   --danger-glow: rgba(220, 38, 38, 0.10);
 }
@@ -53,6 +53,17 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
+}
+
+/* ===== DATE CARD COLORATION ===== */
+[data-date-type="past"] {
+  background-color: rgba(229, 115, 115, 0.60) !important;
+  border-color: rgba(229, 115, 115, 0.30) !important;
+}
+
+[data-date-type="today"] {
+  background-color: rgba(129, 199, 132, 0.60) !important;
+  border-color: rgba(129, 199, 132, 0.40) !important;
 }
 
 /* Theme transition */

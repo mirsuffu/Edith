@@ -82,15 +82,13 @@ const DayCard = memo<{
     updatePlannerEntry({ ...existing, notifyEnabled: !existing.notifyEnabled });
   }, [date, planner]);
 
-  // Fix #3: Card-level highlight — green for today, red for past
-  const cardBg = today
-    ? 'bg-success/10 border-success/40'
-    : past
-      ? 'bg-danger/10 border-danger/30'
-      : 'bg-surface border-border';
+  const dateType = today ? 'today' : past ? 'past' : 'future';
 
   return (
-    <div className={`${cardBg} border rounded-xl overflow-hidden transition-colors`}>
+    <div
+      data-date-type={dateType}
+      className="bg-surface border border-border rounded-xl overflow-hidden transition-colors"
+    >
       {/* Day header */}
       <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-semibold ${today ? 'text-success bg-success/8' : past ? 'text-text-3 bg-surface-2/30' : 'text-text-2 bg-surface-2/20'
         }`}>
@@ -107,41 +105,35 @@ const DayCard = memo<{
             <div key={subj} className="flex items-center gap-1.5">
               {/* Subject dot */}
               <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: config[subj].color }} />
+              
+              <div className="flex-1 min-w-0">
+                <DebouncedInput
+                  value={entry?.note || ''}
+                  onChange={(val) => handleNoteChange(subj, val)}
+                  disabled={!isEditorMode}
+                  placeholder={config[subj].name}
+                  maxLength={50}
+                />
+              </div>
 
-              {/* Subject name */}
-              <span className="text-[10px] font-semibold w-16 shrink-0 truncate text-text-2">
-                {config[subj].name}
-              </span>
-
-              {/* Note input — uses local state, commits on blur */}
-              <DebouncedInput
-                value={entry?.note || ''}
-                onChange={(val) => handleNoteChange(subj, val)}
-                disabled={!isEditorMode}
-                placeholder="—"
-                maxLength={50}
-              />
-
-              {/* Fix #12: Visible tick box with clear border */}
+              {/* Tick button */}
               <button
                 onClick={() => handleToggleTick(subj)}
                 disabled={!entry?.note}
-                className={`w-6 h-6 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
-                  entry?.ticked
-                    ? 'bg-success/20 border-success text-success'
+                className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${entry?.ticked
+                    ? 'bg-success text-white'
                     : entry?.note
-                      ? 'border-text-3/60 hover:border-accent text-transparent hover:text-accent/30'
-                      : 'border-border/30 opacity-30'
-                }`}
-                aria-label="Toggle done"
+                      ? 'border border-border/60 hover:border-success text-text-3'
+                      : 'border border-border/20 opacity-30 cursor-not-allowed'
+                  }`}
+                aria-label={entry?.ticked ? 'Mark undone' : 'Mark done'}
               >
-                <Check size={12} strokeWidth={3} />
+                {entry?.ticked && <Check size={10} />}
               </button>
 
-              {/* Notify */}
+              {/* Notify toggle */}
               <button
                 onClick={() => toggleNotify(subj)}
-                disabled={!entry?.note}
                 className={`w-5 h-5 flex items-center justify-center shrink-0 transition-colors ${entry?.notifyEnabled ? 'text-warning' : 'text-text-3/20'
                   } ${!entry?.note ? 'opacity-0' : ''}`}
                 aria-label="Toggle notification"
@@ -158,7 +150,10 @@ const DayCard = memo<{
 DayCard.displayName = 'DayCard';
 
 export const PlannerTab: React.FC = () => {
-  const [centerDate, setCenterDate] = useState(toLocalDateStr());
+  // Capture "today" once at mount using local timezone
+  const todayStrAtMount = useMemo(() => toLocalDateStr(), []);
+  
+  const [centerDate, setCenterDate] = useState(todayStrAtMount);
   const dates = useMemo(() => getWeekDates(centerDate), [centerDate]);
 
   return (
@@ -173,7 +168,7 @@ export const PlannerTab: React.FC = () => {
           <ChevronLeft size={16} />
         </button>
         <button
-          onClick={() => setCenterDate(toLocalDateStr())}
+          onClick={() => setCenterDate(todayStrAtMount)}
           className="px-3 py-1 rounded-lg text-xs font-semibold text-text-2 hover:bg-surface-2 transition-colors"
         >
           {`${formatDateDDMMYY(dates[0])} — ${formatDateDDMMYY(dates[dates.length - 1])}`}
@@ -190,8 +185,8 @@ export const PlannerTab: React.FC = () => {
       {/* Day cards — mobile-friendly vertical stack */}
       <div className="space-y-2">
         {dates.map((date) => {
-          const today = isToday(date);
-          const past = isPast(date) && !today;
+          const today = date === todayStrAtMount;
+          const past = date < todayStrAtMount;
           return <DayCard key={date} date={date} today={today} past={past} />;
         })}
       </div>
