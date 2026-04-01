@@ -7,7 +7,7 @@ import { isAIConfigured } from '@/config/ai';
 import { generateId } from '@/utils/dates';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
 import type { ChatSession, ChatMessage, PendingToolCall } from '@/types';
-import { Send, Plus, Brain, Trash2, MessageSquare, X, Square, Zap } from 'lucide-react';
+import { Send, Plus, Brain, Trash2, MessageSquare, X, Square, Zap, Globe } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -54,6 +54,11 @@ export const EdithTab: React.FC = React.memo(() => {
   const deleteSession = useAppStore((s) => s.deleteChatSession);
   const setEdithMemory = useAppStore((s) => s.setEdithMemory);
   const setPendingToolCall = useAppStore((s) => s.setPendingToolCall);
+  
+  const thinkingEnabled = useAppStore((s) => s.data.isThinkingEnabled);
+  const webSearchEnabled = useAppStore((s) => s.data.isWebSearchEnabled);
+  const setThinkingEnabled = useAppStore((s) => s.setThinkingEnabled);
+  const setWebSearchEnabled = useAppStore((s) => s.setWebSearchEnabled);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -65,10 +70,6 @@ export const EdithTab: React.FC = React.memo(() => {
   // Use ref for focus-locking to avoid re-renders and ensure stability
   const isTypingRef = useRef(false);
 
-  // Fix #8: Thinking toggle
-  const [thinkingEnabled, setThinkingEnabled] = useState(() => {
-    try { return localStorage.getItem(THINKING_KEY) === 'true'; } catch { return false; }
-  });
   const abortRef = useRef<AbortController | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -139,6 +140,10 @@ export const EdithTab: React.FC = React.memo(() => {
     });
   }, []);
 
+  const toggleWebSearch = useCallback(() => {
+    setWebSearchEnabled((prev) => !prev);
+  }, []);
+
   const createNewSession = () => {
     const session: ChatSession = {
       id: generateId(), title: 'New Chat',
@@ -190,7 +195,7 @@ export const EdithTab: React.FC = React.memo(() => {
     abortRef.current = controller;
 
     try {
-      let response = await sendChatMessage(messages, systemPrompt, controller.signal, thinkingEnabled);
+      let response = await sendChatMessage(messages, systemPrompt, controller.signal, thinkingEnabled, webSearchEnabled);
 
       // Fix #11: Handle tool calls — support bulk (multiple at once)
       if (response.toolCalls && response.toolCalls.length > 0) {
@@ -390,63 +395,102 @@ export const EdithTab: React.FC = React.memo(() => {
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-bg to-transparent pointer-events-none md:hidden" />
           </div>
 
-          {/* Input — auto-resizing textarea + thinking toggle */}
-          <div className="p-3 border-t border-border flex gap-2 shrink-0 items-end">
-            {/* Fix #8: Thinking toggle */}
-            <button
-              onClick={toggleThinking}
-              className={`p-2 rounded-xl border shrink-0 transition-all ${
-                thinkingEnabled
-                  ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-border text-text-3 hover:text-text-2 hover:bg-surface-2'
-              }`}
-              aria-label={thinkingEnabled ? 'Disable deep thinking' : 'Enable deep thinking'}
-              title={thinkingEnabled ? 'Thinking: ON — Edith thinks deeper' : 'Thinking: OFF — Quick responses'}
-            >
-              <Zap size={16} />
-            </button>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                isTypingRef.current = true;
-              }}
-              onBlur={() => {
-                // Short delay to see if we're moving focus to another interactive element
-                setTimeout(() => {
-                  const activeEl = document.activeElement;
-                  const isInteractive = activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'A';
-                  if (!isInteractive) {
-                    isTypingRef.current = false;
+          {/* Input — auto-resizing textarea + toggles */}
+          <div className="p-3 border-t border-border flex flex-col gap-2 shrink-0">
+            {/* Toggles row */}
+            <div className="flex gap-2 px-1">
+              <button
+                onClick={toggleThinking}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold transition-all ${
+                  thinkingEnabled
+                    ? 'border-accent bg-accent/10 text-accent shadow-[0_0_10px_rgba(var(--accent-rgb),0.2)]'
+                    : 'border-border bg-surface-2 text-text-3 hover:text-text-2'
+                }`}
+                title={thinkingEnabled ? 'Thinking: ON — Using Super 120B' : 'Thinking: OFF — Using Nano 30B'}
+              >
+                <Zap size={12} className={thinkingEnabled ? 'fill-current' : ''} />
+                <span>Deep Thinking</span>
+              </button>
+
+              <button
+                onClick={toggleWebSearch}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold transition-all ${
+                  webSearchEnabled
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.2)]'
+                    : 'border-border bg-surface-2 text-text-3 hover:text-text-2'
+                }`}
+                title={webSearchEnabled ? 'Search: ON — Real-time Web Access' : 'Search: OFF — Local Knowledge'}
+              >
+                <Globe size={12} className={webSearchEnabled ? 'animate-pulse' : ''} />
+                <span>Live Web Search</span>
+              </button>
+
+              {/* State Indicator */}
+              <div className="ml-auto flex items-center gap-2 px-2 py-1 rounded-lg bg-surface-3 border border-border">
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  thinkingEnabled && webSearchEnabled ? 'bg-purple-500 animate-pulse' :
+                  thinkingEnabled ? 'bg-accent' :
+                  webSearchEnabled ? 'bg-blue-500' :
+                  'bg-green-500'
+                }`} />
+                <span className="text-[9px] font-mono text-text-3 uppercase tracking-tighter">
+                  {thinkingEnabled && webSearchEnabled ? 'Research Mode' :
+                   thinkingEnabled ? 'Deep Logic' :
+                   webSearchEnabled ? 'Fast Fact-Check' :
+                   'Blazing Fast'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  isTypingRef.current = true;
+                }}
+                onBlur={() => {
+                  // Short delay to see if we're moving focus to another interactive element
+                  setTimeout(() => {
+                    const activeEl = document.activeElement;
+                    const isInteractive = activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'A';
+                    if (!isInteractive) {
+                      isTypingRef.current = false;
+                    }
+                  }, 100);
+                }}
+                onFocus={() => {
+                  isTypingRef.current = true;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
                   }
-                }, 100);
-              }}
-              onFocus={() => {
-                isTypingRef.current = true;
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
+                }}
+                placeholder={
+                  thinkingEnabled && webSearchEnabled ? "Conduct deep research..." :
+                  thinkingEnabled ? "Solve a complex problem..." :
+                  webSearchEnabled ? "Search and summarize..." :
+                  "Ask Edith anything..."
                 }
-              }}
-              placeholder="Ask Edith anything..."
-              rows={1}
-              inputMode="text"
-              autoComplete="off"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-surface-2 text-sm text-text-1 placeholder:text-text-3 focus:outline-none focus:border-accent resize-none no-scrollbar"
-              style={{ maxHeight: '120px' }}
-            />
-            <Button
-              onClick={() => loading ? handleCancel() : handleSend()}
-              disabled={(!loading && !input.trim())}
-              variant={loading ? 'danger' : 'primary'}
-              className="px-4 shrink-0"
-              aria-label={loading ? "Stop generation" : "Send message"}
-            >
-              {loading ? <Square size={16} fill="currentColor" /> : <Send size={16} />}
-            </Button>
+                rows={1}
+                inputMode="text"
+                autoComplete="off"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-surface-2 text-sm text-text-1 placeholder:text-text-3 focus:outline-none focus:border-accent resize-none no-scrollbar transition-colors"
+                style={{ maxHeight: '120px' }}
+              />
+              <Button
+                onClick={() => loading ? handleCancel() : handleSend()}
+                disabled={(!loading && !input.trim())}
+                variant={loading ? 'danger' : 'primary'}
+                className="px-4 shrink-0 h-[42px]"
+                aria-label={loading ? "Stop generation" : "Send message"}
+              >
+                {loading ? <Square size={16} fill="currentColor" /> : <Send size={16} />}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

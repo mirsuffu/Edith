@@ -10,6 +10,20 @@ export const AI_TOOLS = [
   {
     type: "function",
     function: {
+      name: "web_search",
+      description: "Search the live web for real-time information, current events, tax laws, or exam updates.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The specific search query to look up on the web." },
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "update_progress",
       description: "Increment or decrement the number of lectures or revisions completed for a specific subject.",
       parameters: {

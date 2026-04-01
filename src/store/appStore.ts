@@ -38,6 +38,8 @@ const defaultAppData: AppData = {
   edithMemory: '',
   edithChatSessions: [],
   activeEdithSessionId: null,
+  isThinkingEnabled: false,
+  isWebSearchEnabled: false,
   notificationsEnabled: false,
   fullScreenEnabled: false,
   pacingAlertThreshold: DEFAULT_PACE_ALERT_THRESHOLD,
@@ -127,6 +129,8 @@ interface AppStore {
   addChatSession: (session: ChatSession) => void;
   addChatMessage: (sessionId: string, message: ChatMessage) => void;
   setActiveEdithSessionId: (id: string | null) => void;
+  setThinkingEnabled: (enabled: boolean) => void;
+  setWebSearchEnabled: (enabled: boolean) => void;
   deleteChatSession: (id: string) => void;
 
   // Toasts
@@ -534,6 +538,18 @@ export const useAppStore = create<AppStore>()(
 
       setActiveEdithSessionId: (id) => set((s) => {
         s.data.activeEdithSessionId = id;
+      }),
+
+      setThinkingEnabled: (enabled) => set((s) => {
+        s.data.isThinkingEnabled = enabled;
+        s.data.updatedAt = new Date().toISOString();
+        saveToLocalStorage(s.data);
+      }),
+
+      setWebSearchEnabled: (enabled) => set((s) => {
+        s.data.isWebSearchEnabled = enabled;
+        s.data.updatedAt = new Date().toISOString();
+        saveToLocalStorage(s.data);
       }),
 
       deleteChatSession: (id) => set((s) => {

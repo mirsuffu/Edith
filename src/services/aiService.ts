@@ -4,6 +4,7 @@ import type { AppData } from '@/types';
 import { calculateStats } from '@/utils/stats';
 import { SUBJECT_KEYS } from '@/constants';
 import { AI_TOOLS } from './aiTools';
+import { searchWeb } from './tavilyService';
 import * as Sentry from '@sentry/react';
 
 export interface AIResponse {
@@ -79,18 +80,27 @@ TONE: Direct, tactical, no-nonsense, but gently playful. Don't sugarcoat. Maximu
  * Fix #8: thinkingEnabled adds reasoning instructions
  * Fix #10: throws typed AIError for contextual error messages
  * Task #4: Circuit-breaker with 8s timeout and cached response degradation.
+ * Task #5: Dual-tier routing (Nano 30B vs Super 120B) and Web Search integration.
  */
 export const sendChatMessage = async (
   messages: any[],
   systemPrompt: string,
   signal?: AbortSignal,
-  thinkingEnabled: boolean = false
+  thinkingEnabled: boolean = false,
+  webSearchEnabled: boolean = false
 ): Promise<AIResponse> => {
   if (!isAIConfigured) {
     return { content: 'AI is not configured.', toolCalls: null };
   }
 
-  // Fix #8: When thinking is enabled, prepend reasoning instructions
+  // Task #5: Model Selection based on Thinking Tier
+  // Thinking Enabled -> Super 120B (Heavy Reasoning)
+  // Thinking Disabled -> Nano 30B (Blazing Fast)
+  const selectedModel = thinkingEnabled 
+    ? "nvidia/nemotron-3-super-120b-a12b" 
+    : "nvidia/nemotron-3-nano-30b-a3b";
+
+  // Task #5: Inject reasoning instructions if thinking is enabled
   let finalSystemPrompt = systemPrompt;
   if (thinkingEnabled) {
     finalSystemPrompt = `IMPORTANT: Before responding, think step-by-step internally (up to 8 reasoning steps, max 10 seconds of deliberation). Analyze the student's data carefully. Do NOT show your reasoning process to the user — only output the final answer.\n\n${systemPrompt}`;
@@ -101,6 +111,11 @@ export const sendChatMessage = async (
     { role: 'system', content: finalSystemPrompt },
     ...messages,
   ];
+
+  // Task #5: Only send web_search tool if search is enabled
+  const filteredTools = webSearchEnabled 
+    ? AI_TOOLS 
+    : AI_TOOLS.filter(t => t.function.name !== 'web_search');
 
   const cacheKey = getCacheKey(messages);
   let lastError: AIError | null = null;
@@ -126,12 +141,14 @@ export const sendChatMessage = async (
           'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
         },
         body: JSON.stringify({
-          model: AI_CONFIG.model,
+          model: selectedModel,
           messages: fullMessages,
-          tools: AI_TOOLS,
-          tool_choice: 'auto',
-          max_tokens: 2048,
+          tools: filteredTools.length > 0 ? filteredTools : undefined,
+          tool_choice: filteredTools.length > 0 ? 'auto' : undefined,
+          max_tokens: thinkingEnabled ? 4096 : 2048,
           temperature: thinkingEnabled ? 0.3 : 0.7,
+          // Task #5: Official thinking flag for Nemotron 120B
+          enable_thinking: thinkingEnabled,
         }),
         signal,
       });
@@ -151,6 +168,56 @@ export const sendChatMessage = async (
 
       if (!message) {
         return { content: 'Empty response from AI.', toolCalls: null };
+      }
+
+      // Task #5: Intercept Web Search tool calls immediately
+      if (message.tool_calls && webSearchEnabled) {
+        const searchCall = message.tool_calls.find((c: any) => c.function.name === 'web_search');
+        if (searchCall) {
+          const { query } = JSON.parse(searchCall.function.arguments);
+          const searchResult = await searchWeb(query);
+          
+          // Feed the search result back into the message history
+          const searchContextMessages = [
+            ...fullMessages,
+            message,
+            {
+              role: 'tool',
+              tool_call_id: searchCall.id,
+              name: 'web_search',
+              content: searchResult,
+            }
+          ];
+
+          // Secondary call for the final grounded answer
+          const finalRes = await fetch(fetchUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
+            },
+            body: JSON.stringify({
+              model: selectedModel,
+              messages: searchContextMessages,
+              max_tokens: 2048,
+              temperature: 0.5,
+            }),
+            signal,
+          });
+
+          if (finalRes.ok) {
+            const finalJson = await finalRes.json();
+            const finalMessage = finalJson.choices?.[0]?.message;
+            if (finalMessage) {
+              const result: AIResponse = {
+                content: finalMessage.content || '',
+                toolCalls: null, // We've already resolved the search
+              };
+              responseCache.set(cacheKey, result);
+              return result;
+            }
+          }
+        }
       }
 
       const result: AIResponse = {

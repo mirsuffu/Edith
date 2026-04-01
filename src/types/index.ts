@@ -182,6 +182,8 @@ export interface AppData {
   edithMemory: string;
   edithChatSessions: ChatSession[];
   activeEdithSessionId: string | null;
+  isThinkingEnabled: boolean;
+  isWebSearchEnabled: boolean;
   notificationsEnabled: boolean;
   fullScreenEnabled?: boolean;
   pacingAlertThreshold: number;
