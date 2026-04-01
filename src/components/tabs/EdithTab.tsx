@@ -10,6 +10,7 @@ import type { ChatSession, ChatMessage } from '@/types';
 import { Send, Plus, Brain, Trash2, MessageSquare, X, Square } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const quickActions = [
   { label: '🔍 Audit my pace', prompt: 'Audit my current pace and give me honest feedback.' },
@@ -239,8 +240,8 @@ export const EdithTab: React.FC = () => {
                     : 'bg-surface-2 border border-border text-text-1 rounded-bl-md'
                 }`}>
                   {msg.role === 'assistant' ? (
-                    <div className="selectable prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-text-1 [&_code]:bg-surface-3 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent [&_code]:text-xs">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    <div className="selectable prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-text-1 [&_code]:bg-surface-3 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent [&_code]:text-xs [&_table]:w-full [&_table]:my-2 [&_th]:border [&_th]:border-border [&_th]:bg-surface-3 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap selectable">{msg.content}</div>
