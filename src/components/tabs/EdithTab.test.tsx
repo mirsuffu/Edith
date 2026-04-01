@@ -47,6 +47,8 @@ describe('EdithTab Focus Stability', () => {
       ],
       activeEdithSessionId: '1',
       edithMemory: '',
+      isThinkingEnabled: false,
+      isWebSearchEnabled: false,
     },
     userProfile: { name: 'Test User' },
     addChatSession: vi.fn(),
@@ -55,6 +57,8 @@ describe('EdithTab Focus Stability', () => {
     deleteChatSession: vi.fn(),
     setEdithMemory: vi.fn(),
     setPendingToolCall: vi.fn(),
+    setThinkingEnabled: vi.fn(),
+    setWebSearchEnabled: vi.fn(),
   };
 
   beforeEach(() => {

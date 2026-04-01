@@ -526,4 +526,4 @@ export const EdithTab: React.FC = React.memo(() => {
       />
     </div>
   );
-}));
+});
