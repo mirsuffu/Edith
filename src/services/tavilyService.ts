@@ -36,6 +36,9 @@ export const searchWeb = async (query: string): Promise<string> => {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Tavily API Key is invalid or expired. Please check configuration.");
+      }
       throw new Error(`Tavily API error: ${response.status}`);
     }
 

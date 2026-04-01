@@ -166,7 +166,11 @@ export const cancelNotification = async (id: string): Promise<void> => {
 export const registerServiceWorker = async (): Promise<void> => {
   if ('serviceWorker' in navigator) {
     try {
-      await navigator.serviceWorker.register('/sw.js');
+      // Use BASE_URL to correctly register from sub-directory (Fixes 404 error)
+      const swPath = `${import.meta.env.BASE_URL}sw.js`.replace(/\/+/g, '/');
+      await navigator.serviceWorker.register(swPath, {
+        scope: import.meta.env.BASE_URL
+      });
     } catch (e) {
       console.warn('Service worker registration failed:', e);
     }
