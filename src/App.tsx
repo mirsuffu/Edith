@@ -123,7 +123,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex items-center justify-center bg-bg">
         <div className="text-center">
-          <img src="/logo.png" alt="E.D.I.T.H" className="w-20 h-20 mx-auto rounded-2xl mb-4" />
+          <img src={import.meta.env.BASE_URL + 'logo.png'} alt="E.D.I.T.H" className="w-20 h-20 mx-auto rounded-2xl mb-4" />
           <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spinner mx-auto" />
         </div>
       </div>

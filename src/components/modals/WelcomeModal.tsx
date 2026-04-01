@@ -19,7 +19,7 @@ export const WelcomeModal: React.FC = () => {
   return (
     <Modal open={show} onClose={() => setShow(false)} maxWidth="max-w-md">
       <div className="p-8 text-center space-y-6">
-        <img src="/logo.png" alt="E.D.I.T.H" className="w-20 h-20 mx-auto rounded-2xl" />
+        <img src={import.meta.env.BASE_URL + 'logo.png'} alt="E.D.I.T.H" className="w-20 h-20 mx-auto rounded-2xl" />
         <h2 className="font-display text-2xl font-bold text-text-1">
           Welcome back, {userName} 🔥
         </h2>

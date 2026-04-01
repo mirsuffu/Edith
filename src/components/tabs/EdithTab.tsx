@@ -221,7 +221,7 @@ export const EdithTab: React.FC = () => {
           <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
             {!activeSession?.messages.length && (
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                <img src="/logo.png" alt="E.D.I.T.H" className="w-16 h-16 rounded-2xl mb-4" />
+                <img src={import.meta.env.BASE_URL + 'logo.png'} alt="E.D.I.T.H" className="w-16 h-16 rounded-2xl mb-4" />
                 <h3 className="font-display text-lg font-bold text-text-1 mb-1">E.D.I.T.H AI</h3>
                 <p className="text-sm text-text-2 max-w-md">Your tactical study mentor. Ask anything about your prep — I don't sugarcoat.</p>
               </div>
@@ -231,7 +231,7 @@ export const EdithTab: React.FC = () => {
               <div key={msg.id} className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {/* AI avatar */}
                 {msg.role === 'assistant' && (
-                  <img src="/logo.png" alt="Edith" className="w-7 h-7 rounded-full shrink-0 mt-1" />
+                  <img src={import.meta.env.BASE_URL + 'logo.png'} alt="Edith" className="w-7 h-7 rounded-full shrink-0 mt-1" />
                 )}
                 <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
@@ -258,7 +258,7 @@ export const EdithTab: React.FC = () => {
 
             {loading && (
               <div className="flex gap-2.5 justify-start">
-                <img src="/logo.png" alt="Edith" className="w-7 h-7 rounded-full shrink-0 mt-1" />
+                <img src={import.meta.env.BASE_URL + 'logo.png'} alt="Edith" className="w-7 h-7 rounded-full shrink-0 mt-1" />
                 <div className="bg-surface-2 border border-border rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-3">
                   <Brain size={14} className="text-accent animate-pulse" />
                   <div className="text-xs font-semibold text-text-2 tracking-wide">E.D.I.T.H is thinking</div>

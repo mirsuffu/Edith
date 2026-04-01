@@ -47,7 +47,7 @@ export const LoginScreen: React.FC = () => {
         {/* Logo + Heading */}
         <div className="text-center mb-10">
           <div className="relative inline-block">
-            <img src="/logo.png" alt="E.D.I.T.H" className="w-20 h-20 mx-auto rounded-2xl mb-4 relative" style={{ zIndex: 1 }} />
+            <img src={import.meta.env.BASE_URL + 'logo.png'} alt="E.D.I.T.H" className="w-20 h-20 mx-auto rounded-2xl mb-4 relative" style={{ zIndex: 1 }} />
             {/* Glow behind logo */}
             <div className="absolute inset-0 w-20 h-20 mx-auto rounded-2xl animate-liquid-pulse opacity-30"
               style={{ background: 'var(--accent)', filter: 'blur(20px)' }} />
