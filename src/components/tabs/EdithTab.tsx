@@ -81,22 +81,41 @@ export const EdithTab: React.FC = React.memo(() => {
 
   // Stable focus-lock mechanism
   useEffect(() => {
-    const handleFocusLock = () => {
-      // If we are typing and focus is lost (except for legitimate reasons like clicking a button), regain focus
+    const handleFocusLock = (e: FocusEvent) => {
+      // If we are typing and focus is lost, and it wasn't to an interactive element, snap back
+      if (isTypingRef.current && textareaRef.current && e.target === textareaRef.current) {
+        // We use requestAnimationFrame to check the active element AFTER the blur event has completed
+        requestAnimationFrame(() => {
+          const activeEl = document.activeElement;
+          const isInteractive = activeEl?.tagName === 'BUTTON' || 
+                              activeEl?.tagName === 'INPUT' || 
+                              activeEl?.tagName === 'A' ||
+                              activeEl?.closest('[role="button"]');
+          
+          if (!isInteractive && isTypingRef.current) {
+            textareaRef.current?.focus();
+          }
+        });
+      }
+    };
+    
+    document.addEventListener('blur', handleFocusLock, true);
+    
+    // Safety interval (higher frequency for mobile responsiveness)
+    const interval = setInterval(() => {
       if (isTypingRef.current && textareaRef.current && document.activeElement !== textareaRef.current) {
-        // Check if the new active element is a button or input (to allow navigation)
         const activeEl = document.activeElement;
         const isInteractive = activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'A';
-        
         if (!isInteractive) {
           textareaRef.current.focus();
         }
       }
+    }, 50);
+
+    return () => {
+      document.removeEventListener('blur', handleFocusLock, true);
+      clearInterval(interval);
     };
-    
-    // Check focus every 30ms if typing (higher frequency for better mobile feel)
-    const interval = setInterval(handleFocusLock, 30);
-    return () => clearInterval(interval);
   }, []);
 
   // Auto-resize textarea

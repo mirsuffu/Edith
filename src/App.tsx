@@ -203,17 +203,6 @@ const App: React.FC = () => {
     );
   }
 
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'tracker': return <TrackerTab />;
-      case 'planner': return <PlannerHubTab />;
-      case 'performance': return <PerformanceTab />;
-      case 'edith': return <EdithTab />;
-      case 'settings': return <SettingsTab />;
-      default: return <TrackerTab />;
-    }
-  };
-
   return (
     <div className="h-screen w-full flex flex-col bg-bg font-body overflow-hidden relative" style={{ zIndex: 0 }}>
       {/* Floating particles */}
@@ -227,9 +216,11 @@ const App: React.FC = () => {
         <SideRail />
 
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 md:px-5 py-2 pb-20 md:pb-2 relative" style={{ zIndex: 2 }}>
-          <Suspense fallback={<TabFallback />}>
-            {renderTab()}
-          </Suspense>
+          <div className={activeTab === 'tracker' ? 'h-full' : 'hidden'}><Suspense fallback={<TabFallback />}><TrackerTab /></Suspense></div>
+          <div className={activeTab === 'planner' ? 'h-full' : 'hidden'}><Suspense fallback={<TabFallback />}><PlannerHubTab /></Suspense></div>
+          <div className={activeTab === 'performance' ? 'h-full' : 'hidden'}><Suspense fallback={<TabFallback />}><PerformanceTab /></Suspense></div>
+          <div className={activeTab === 'edith' ? 'h-full' : 'hidden'}><Suspense fallback={<TabFallback />}><EdithTab /></Suspense></div>
+          <div className={activeTab === 'settings' ? 'h-full' : 'hidden'}><Suspense fallback={<TabFallback />}><SettingsTab /></Suspense></div>
         </main>
       </div>
 
