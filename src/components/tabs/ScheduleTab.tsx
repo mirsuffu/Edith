@@ -39,7 +39,7 @@ export const ScheduleTab: React.FC = () => {
 
   const handleAdd = () => {
     if (!fTitle.trim()) { toast.error('Title is required.'); return; }
-    if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
+    if (fIsFixed && !isEditorMode) { toast.error('Enable Editor Mode for fixed schedule items.'); return; }
     const item: ScheduleItem = {
       id: generateId(), date: fIsFixed ? '__fixed__' : viewDate,
       subject: fSubject || null, customTitle: fTitle.trim(),
@@ -117,7 +117,7 @@ export const ScheduleTab: React.FC = () => {
                 }`} aria-label="Toggle">
                 {item.completed && <Check size={12} />}
               </button>
-              <button onClick={() => isEditorMode ? setItemToDelete(item.id) : toast.error('Enable Editor Mode first.')}
+              <button onClick={() => setItemToDelete(item.id)}
                 className="text-text-3/30 hover:text-danger p-0.5 transition-colors" aria-label="Delete">
                 <Trash2 size={12} />
               </button>

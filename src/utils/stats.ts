@@ -46,51 +46,51 @@ export const calculateStats = (
     (k) => contextGroup === 'all' || data.config[k].group === contextGroup
   );
 
-  let totalTasks = 0;
-  let completedTasks = 0;
+  // Pace always uses lectures only (per user requirement)
+  let totalLectures = 0;
+  let completedLectures = 0;
+  // Overall progress uses both lectures + revisions
+  let totalAll = 0;
+  let completedAll = 0;
 
   relevantSubjects.forEach((key) => {
     const sub = data.config[key];
     const doneLec = data.progress.lectures[key] || 0;
     const doneRev = data.progress.revisions[key] || 0;
 
-    if (isLectures) {
-      totalTasks += sub.lectures;
-      completedTasks += doneLec;
-    } else {
-      // General view: only calculate pace/required units based on LECTURES
-      // Revisions are tracked but not part of the primary "Required Per Day" metric
-      totalTasks += sub.lectures;
-      completedTasks += doneLec;
-    }
+    totalLectures += sub.lectures;
+    completedLectures += doneLec;
+    totalAll += sub.lectures + sub.revisions;
+    completedAll += doneLec + doneRev;
   });
 
-  const overallProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-  const tasksLeft = totalTasks - completedTasks;
-  const requiredPerDay = daysRemaining > 0 ? (tasksLeft / daysRemaining).toFixed(1) : '0';
+  const overallProgress = totalAll > 0 ? (completedAll / totalAll) * 100 : 0;
+  // Pace is always lectures-only
+  const lecturesLeft = totalLectures - completedLectures;
+  const requiredPerDay = daysRemaining > 0 ? (lecturesLeft / daysRemaining).toFixed(1) : '0';
 
-  // Projected completion using actual daily pace
+  // Projected completion using actual daily lecture pace
   const startDate = data.studyStartDate || '2025-11-01';
   const daysElapsed = Math.max(1, daysBetween(startDate, todayStr));
-  const actualDailyPace = completedTasks / daysElapsed;
+  const actualDailyPace = completedLectures / daysElapsed;
   const projectedCompletion = actualDailyPace > 0
-    ? Math.min(100, ((completedTasks + actualDailyPace * daysRemaining) / totalTasks) * 100)
+    ? Math.min(100, ((completedLectures + actualDailyPace * daysRemaining) / totalLectures) * 100)
     : 0;
 
   // Warning logic
   const threshold = data.pacingAlertThreshold ?? DEFAULT_PACE_ALERT_THRESHOLD;
   let warning: string | null = null;
 
-  if (isDeadlinePassed && completedTasks < totalTasks) {
+  if (isDeadlinePassed && completedLectures < totalLectures) {
     warning = isLectures
       ? 'CRITICAL: SYLLABUS DEADLINE EXCEEDED.'
       : `CRITICAL: EXAM DEADLINE EXCEEDED.`;
-  } else if (parseFloat(requiredPerDay) > threshold && completedTasks < totalTasks) {
-    warning = `PACE ALERT: ${requiredPerDay} UNITS/DAY REQUIRED`;
+  } else if (parseFloat(requiredPerDay) > threshold && completedLectures < totalLectures) {
+    warning = `PACE ALERT: ${requiredPerDay} LECTURES/DAY REQUIRED`;
   }
 
   // Suppress warning if 100% done
-  if (completedTasks >= totalTasks && totalTasks > 0) {
+  if (completedLectures >= totalLectures && totalLectures > 0) {
     warning = null;
   }
 
@@ -129,7 +129,7 @@ export const calculateStats = (
     warning,
     streak,
     isBackupNeeded,
-    totalTasks,
-    completedTasks,
+    totalTasks: totalAll,
+    completedTasks: completedAll,
   };
 };

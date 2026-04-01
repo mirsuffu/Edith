@@ -28,7 +28,7 @@ const Section: React.FC<{
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-border/50 last:border-b-0">
+    <div className="last:border-b-0">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-2 py-3 text-left group"
@@ -41,6 +41,7 @@ const Section: React.FC<{
         />
       </button>
       {open && <div className="pb-4">{children}</div>}
+      <div className="gradient-divider" />
     </div>
   );
 };

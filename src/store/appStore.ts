@@ -42,7 +42,6 @@ const defaultAppData: AppData = {
   fullScreenEnabled: false,
   pacingAlertThreshold: DEFAULT_PACE_ALERT_THRESHOLD,
   lastWelcomeShownDate: null,
-  thinkingEnabled: false,
   updatedAt: new Date().toISOString(),
 };
 
@@ -91,7 +90,6 @@ interface AppStore {
   setPacingAlertThreshold: (val: number) => void;
   setNotificationsEnabled: (val: boolean) => void;
   setFullScreenEnabled: (val: boolean) => void;
-  setThinkingEnabled: (val: boolean) => void;
 
   // Config
   updateSubjectConfig: (subject: SubjectKey, field: 'lectures' | 'revisions', value: number) => void;
@@ -186,7 +184,7 @@ const migrateData = (raw: Record<string, unknown>): AppData => {
           ...r.config[k],
           group: DEFAULT_CONFIG[k as SubjectKey].group,
         };
-        
+
         // Ensure no explicit 'undefined' values are passed to Firestore
         if (parentKey) {
           mergedConfig[k as SubjectKey].parent = parentKey;
@@ -242,7 +240,6 @@ const migrateData = (raw: Record<string, unknown>): AppData => {
     fullScreenEnabled: r.fullScreenEnabled ?? false,
     pacingAlertThreshold: r.pacingAlertThreshold ?? DEFAULT_PACE_ALERT_THRESHOLD,
     lastWelcomeShownDate: r.lastWelcomeShownDate || null,
-    thinkingEnabled: r.thinkingEnabled ?? false,
     updatedAt: r.updatedAt || new Date().toISOString(),
   };
 };
@@ -352,11 +349,6 @@ export const useAppStore = create<AppStore>()(
 
       setFullScreenEnabled: (val) => set((s) => {
         s.data.fullScreenEnabled = val;
-        s.data.updatedAt = new Date().toISOString();
-        saveToLocalStorage(s.data);
-      }),
-      setThinkingEnabled: (val: boolean) => set((s) => {
-        s.data.thinkingEnabled = val;
         s.data.updatedAt = new Date().toISOString();
         saveToLocalStorage(s.data);
       }),

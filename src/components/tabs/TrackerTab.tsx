@@ -27,6 +27,8 @@ export const TrackerTab: React.FC = () => {
               <h3 className="text-center text-[10px] font-bold uppercase tracking-wider text-text-3 py-1.5 mb-3 bg-surface-2/40 rounded-lg">Lectures</h3>
               <LecturesTab />
             </div>
+            {/* Gradient separator */}
+            <div className="gradient-divider my-4" />
             {/* Revisions section below */}
             <div>
               <h3 className="text-center text-[10px] font-bold uppercase tracking-wider text-text-3 py-1.5 mb-3 bg-surface-2/40 rounded-lg">Revisions</h3>

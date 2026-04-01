@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStats } from '@/hooks/useStats';
 import { useAppStore } from '@/store/appStore';
 import { SUBJECT_KEYS } from '@/constants';
-import { formatDisplayDate, toLocalDateStr } from '@/utils/dates';
+import { formatDateDDMMYY, toLocalDateStr } from '@/utils/dates';
 import { PieChart, TrendingUp, Flame, Calendar } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 
@@ -49,7 +49,7 @@ export const MetricsTab: React.FC = () => {
       value: `${stats.requiredPerDay}`,
       icon: <Calendar size={16} />,
       color: 'text-text-1',
-      description: 'The number of units (lectures + revisions) you need to complete daily to finish everything before the exam. Lower is better.',
+      description: 'The number of lectures you need to complete daily to finish all lectures before the exam. Lower is better.',
     },
   ];
 
@@ -57,8 +57,8 @@ export const MetricsTab: React.FC = () => {
     <div className="h-full overflow-y-auto no-scrollbar pb-24 md:pb-4 tab-content-enter space-y-4">
       {/* Quick info */}
       <div className="flex items-center justify-between text-xs text-text-3 px-1">
-        <span>{formatDisplayDate(today)}</span>
-        <span className="font-mono">{stats.requiredPerDay} units/day required</span>
+        <span>{formatDateDDMMYY(today)}</span>
+        <span className="font-mono">{stats.requiredPerDay} lectures/day required</span>
       </div>
 
       {/* Stat cards — 2x2 on mobile, 4 cols on desktop */}
@@ -119,6 +119,9 @@ export const MetricsTab: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Gradient divider */}
+      <div className="gradient-divider" />
 
       {/* Warning */}
       {stats.warning && (

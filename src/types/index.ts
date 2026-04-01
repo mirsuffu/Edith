@@ -184,7 +184,6 @@ export interface AppData {
   activeEdithSessionId: string | null;
   notificationsEnabled: boolean;
   fullScreenEnabled?: boolean;
-  thinkingEnabled: boolean;
   pacingAlertThreshold: number;
   lastWelcomeShownDate: string | null;
   updatedAt: string;

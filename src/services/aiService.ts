@@ -10,6 +10,18 @@ export interface AIResponse {
   toolCalls: any[] | null;
 }
 
+/** Error types for contextual error messages (Fix #10) */
+export type AIErrorType = 'network' | 'api' | 'capacity' | 'unknown';
+
+export class AIError extends Error {
+  type: AIErrorType;
+  constructor(message: string, type: AIErrorType) {
+    super(message);
+    this.type = type;
+    this.name = 'AIError';
+  }
+}
+
 /** Build context-aware system prompt from current app state */
 export const buildSystemPrompt = (data: AppData, userName: string): string => {
   const stats = calculateStats(data, 'lectures', 'g1');
@@ -23,21 +35,7 @@ export const buildSystemPrompt = (data: AppData, userName: string): string => {
     return `- ${k} (${cfg.name}): Lectures ${lecDone}/${cfg.lectures} (${lecPct}%), Revisions ${revDone}/${cfg.revisions} (${revPct}%)`;
   }).join('\n');
 
-  const thinkingInstruction = data.thinkingEnabled
-    ? `\nTHINKING MODE ENABLED:
-You MUST start your response with a <thought> block containing your step-by-step reasoning/thinking logs (maximum 8 logs/steps). 
-This block should be followed by your actual response to the user.
-Example:
-<thought>
-1. Analyzing student progress in Taxation.
-2. Noting 5% lag in GST lectures.
-...
-</thought>
-Hello [Name], I noticed you're falling behind in GST...`
-    : '';
-
   return `You are E.D.I.T.H., a strict, tactical, and slightly humorous (Suffu-flavored) CA Intermediate study mentor for ${userName || 'the student'}.
-${thinkingInstruction}
 
 MEMORY (always respect this):
 ${data.edithMemory || 'No memory set yet.'}
@@ -46,7 +44,7 @@ PROGRESS SUMMARY:
 - Overall Mastery: ${stats.overallProgress.toFixed(1)}%
 - Streak: ${stats.streak} days
 - Days to Exam: ${stats.daysToExam}
-- Required Pace: ${stats.requiredPerDay} units/day
+- Required Pace: ${stats.requiredPerDay} lectures/day
 - Projected Completion: ${stats.projectedCompletion.toFixed(1)}%
 
 PER-SUBJECT DATA:
@@ -59,38 +57,47 @@ You have tools to interact with the app. You MUST proactively suggest using them
 *   If a student says "I finished 2 tax lectures", use the update_progress tool.
 *   If a student is ignoring Audit, say "Bro, your Audit progress is a joke. Should I drop a 2-hour study block into your schedule for tomorrow?"
 *   If they agree, execute the tool. DO NOT execute a tool without their permission (unless they asked you to do it in their prompt). 
-*   BULK TASKS: You can perform many tasks at once if requested. The confirmation modal will show them all specifically.
+*   You can use MULTIPLE tools in a single response if the student asks for bulk actions (e.g. "plan my whole week").
 
 TONE: Direct, tactical, no-nonsense, but gently playful. Don't sugarcoat. Maximum response length: 600 words. Use markdown. Your goal is to get this student to pass.`;
 };
 
 /**
  * Send a chat completion request to an OpenAI-compatible API.
- * Supports tools and AbortController.
+ * Supports tools, thinking mode, and AbortController.
+ * Fix #8: thinkingEnabled adds reasoning instructions
+ * Fix #10: throws typed AIError for contextual error messages
  */
 export const sendChatMessage = async (
   messages: any[],
   systemPrompt: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  thinkingEnabled: boolean = false
 ): Promise<AIResponse> => {
   if (!isAIConfigured) {
     return { content: 'AI is not configured.', toolCalls: null };
   }
 
+  // Fix #8: When thinking is enabled, prepend reasoning instructions
+  let finalSystemPrompt = systemPrompt;
+  if (thinkingEnabled) {
+    finalSystemPrompt = `IMPORTANT: Before responding, think step-by-step internally (up to 8 reasoning steps, max 10 seconds of deliberation). Analyze the student's data carefully. Do NOT show your reasoning process to the user — only output the final answer.\n\n${systemPrompt}`;
+  }
+
   // Ensure system prompt is first
   const fullMessages = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: finalSystemPrompt },
     ...messages,
   ];
 
-  let lastError = '';
+  let lastError: AIError | null = null;
 
   for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
     try {
       const targetUrl = `${AI_CONFIG.baseUrl}/chat/completions`;
-      
+
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const fetchUrl = isLocal 
+      const fetchUrl = isLocal
         ? targetUrl.replace('https://integrate.api.nvidia.com', '/api/nvidia')
         : `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
@@ -106,19 +113,22 @@ export const sendChatMessage = async (
           tools: AI_TOOLS,
           tool_choice: 'auto',
           max_tokens: 2048,
-          temperature: 0.7,
+          temperature: thinkingEnabled ? 0.3 : 0.7,
         }),
         signal,
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(`API ${res.status}: ${errText.slice(0, 200)}`);
+        if (res.status === 429 || res.status === 503) {
+          throw new AIError(`API ${res.status}: ${errText.slice(0, 200)}`, 'capacity');
+        }
+        throw new AIError(`API ${res.status}: ${errText.slice(0, 200)}`, 'api');
       }
 
       const json = await res.json();
       const message = json.choices?.[0]?.message;
-      
+
       if (!message) {
         return { content: 'Empty response from AI.', toolCalls: null };
       }
@@ -130,12 +140,22 @@ export const sendChatMessage = async (
 
     } catch (e: any) {
       if (e.name === 'AbortError') throw e;
-      lastError = e.message;
+      
+      // Classify error type
+      if (e instanceof AIError) {
+        lastError = e;
+      } else if (e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError') || e.message?.includes('net::')) {
+        lastError = new AIError(e.message, 'network');
+      } else {
+        lastError = new AIError(e.message, 'unknown');
+      }
+      
       if (attempt < AI_MAX_RETRIES) {
         await new Promise((r) => setTimeout(r, AI_RETRY_DELAY_MS));
       }
     }
   }
 
-  return { content: `AI request failed: ${lastError}`, toolCalls: null };
+  // Throw the typed error so EdithTab can differentiate
+  throw lastError || new AIError('AI request failed', 'unknown');
 };

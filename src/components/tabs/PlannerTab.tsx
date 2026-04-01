@@ -1,18 +1,55 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useMemo, memo, useCallback, useRef, useEffect } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { useEditorMode } from '@/hooks/useEditorMode';
 import { SUBJECT_KEYS } from '@/constants';
 import type { SubjectKey, PlannerEntry } from '@/types';
-import { toLocalDateStr, getWeekDates, formatDisplayDate, isToday, isPast, addDays, getDayName } from '@/utils/dates';
+import { toLocalDateStr, getWeekDates, formatDateDDMMYY, isToday, isPast, addDays, getDayName } from '@/utils/dates';
 import { Check, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from '@/utils/toast';
 import { useCardPop } from '@/hooks/useSounds';
+
+/** Local-state input that only commits on blur/Enter — prevents defocus on every keystroke */
+const DebouncedInput = memo<{
+  value: string;
+  onChange: (val: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  maxLength?: number;
+}>(({ value, onChange, disabled, placeholder, maxLength }) => {
+  const [local, setLocal] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+
+  // Sync local when external value changes (e.g. from AI tool)
+  useEffect(() => { setLocal(value); }, [value]);
+
+  const commit = useCallback(() => {
+    if (local !== value) onChange(local);
+  }, [local, value, onChange]);
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') { commit(); ref.current?.blur(); } }}
+      disabled={disabled}
+      placeholder={placeholder}
+      maxLength={maxLength}
+      className="flex-1 text-[11px] bg-transparent border-none text-text-1 placeholder:text-text-3/30 focus:outline-none min-w-0 py-0.5"
+    />
+  );
+});
+DebouncedInput.displayName = 'DebouncedInput';
 
 const DayCard = memo<{
   date: string;
   today: boolean;
   past: boolean;
 }>(({ date, today, past }) => {
+  useCardPop();
+
   const config = useAppStore((s) => s.data.config);
   const planner = useAppStore((s) => s.data.progress.planner);
   const updatePlannerEntry = useAppStore((s) => s.updatePlannerEntry);
@@ -22,64 +59,44 @@ const DayCard = memo<{
   const getEntry = (date: string, subject: SubjectKey): PlannerEntry | undefined =>
     planner.find((p) => p.date === date && p.subject === subject);
 
-  // Local state to prevent focus loss during typing
-  const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const next: Record<string, string> = {};
-    SUBJECT_KEYS.forEach(k => {
-      next[k] = getEntry(date, k)?.note || '';
-    });
-    setLocalNotes(next);
-  }, [date, planner]);
-
-  const handleNoteChange = (subject: SubjectKey, note: string) => {
-    setLocalNotes(p => ({ ...p, [subject]: note }));
-  };
-
-  const handleBlur = (subject: SubjectKey) => {
-    if (!isEditorMode) return;
+  const handleNoteChange = useCallback((subject: SubjectKey, note: string) => {
+    if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
     const existing = getEntry(date, subject);
-    const note = localNotes[subject];
-    if (note === (existing?.note || '')) return;
-
     updatePlannerEntry({
       date, subject, note,
       ticked: existing?.ticked || false,
       notifyEnabled: existing?.notifyEnabled || false,
       notifyTime: existing?.notifyTime,
     });
-  };
+  }, [date, isEditorMode, planner]);
 
-  const handleToggleTick = (date: string, subject: SubjectKey) => {
-    if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
+  // Tick is unlocked (no Editor Mode needed)
+  const handleToggleTick = useCallback((subject: SubjectKey) => {
     togglePlannerTick(date, subject);
-  };
+  }, [date]);
 
-  const toggleNotify = (date: string, subject: SubjectKey) => {
+  // Notify is unlocked (no Editor Mode needed)
+  const toggleNotify = useCallback((subject: SubjectKey) => {
     const existing = getEntry(date, subject);
     if (!existing?.note) return;
     updatePlannerEntry({ ...existing, notifyEnabled: !existing.notifyEnabled });
-  };
+  }, [date, planner]);
+
+  // Fix #3: Card-level highlight — green for today, red for past
+  const cardBg = today
+    ? 'bg-success/[0.04] border-success/30'
+    : past
+      ? 'bg-danger/[0.04] border-danger/20 opacity-70'
+      : 'bg-surface border-border';
 
   return (
-    <div
-      className={`border rounded-xl overflow-hidden transition-all duration-300 ${
-        today 
-          ? 'border-success/40 bg-success/10 card-shadow-success shadow-[0_0_15px_rgba(34,197,94,0.1)]' 
-          : past 
-            ? 'border-danger/30 bg-danger/[0.05] opacity-90' 
-            : 'bg-surface border-border'
-      }`}
-    >
+    <div className={`${cardBg} border rounded-xl overflow-hidden transition-colors`}>
       {/* Day header */}
-      <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-semibold ${
-        today ? 'text-success bg-success/10' : past ? 'text-danger bg-danger/5' : 'text-text-2 bg-surface-2/20'
-      }`}>
+      <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-semibold ${today ? 'text-success bg-success/8' : past ? 'text-text-3 bg-surface-2/30' : 'text-text-2 bg-surface-2/20'
+        }`}>
         <span className="font-bold">{getDayName(date).slice(0, 3)}</span>
-        <span className="font-mono text-[10px] opacity-60">{formatDisplayDate(date)}</span>
-        {today && <span className="text-[9px] bg-success/20 text-success px-1.5 py-0.5 rounded-full ml-auto">Today</span>}
-        {!today && past && <span className="text-[9px] bg-danger/10 text-danger px-1.5 py-0.5 rounded-full ml-auto">Past</span>}
+        <span className="font-mono text-[10px] text-text-3">{formatDateDDMMYY(date)}</span>
+        {today && <span className="text-[9px] bg-success/15 text-success px-1.5 py-0.5 rounded-full ml-auto font-bold">Today</span>}
       </div>
 
       {/* Subjects */}
@@ -96,40 +113,37 @@ const DayCard = memo<{
                 {config[subj].name}
               </span>
 
-              {/* Note input */}
-              <input
-                type="text"
-                value={localNotes[subj] || ''}
-                onChange={(e) => handleNoteChange(subj, e.target.value)}
-                onBlur={() => handleBlur(subj)}
+              {/* Note input — uses local state, commits on blur */}
+              <DebouncedInput
+                value={entry?.note || ''}
+                onChange={(val) => handleNoteChange(subj, val)}
+                disabled={!isEditorMode}
                 placeholder="—"
                 maxLength={50}
-                disabled={!isEditorMode && !entry?.note}
-                className="flex-1 text-[11px] bg-transparent border-none text-text-1 placeholder:text-text-3/30 focus:outline-none min-w-0 py-0.5"
               />
 
+              {/* Fix #12: Visible tick box with clear border */}
               <button
-                onClick={() => handleToggleTick(date, subj)}
+                onClick={() => handleToggleTick(subj)}
                 disabled={!entry?.note}
-                className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                  entry?.ticked 
-                    ? 'bg-success text-white border-success' 
-                    : entry?.note 
-                      ? 'border-border hover:border-accent bg-surface-3/50' 
-                      : 'border-border/30 opacity-10'
+                className={`w-6 h-6 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                  entry?.ticked
+                    ? 'bg-success/20 border-success text-success'
+                    : entry?.note
+                      ? 'border-text-3/40 hover:border-accent text-transparent hover:text-accent/30'
+                      : 'border-border/20 opacity-20'
                 }`}
                 aria-label="Toggle done"
               >
-                {entry?.ticked && <Check size={10} strokeWidth={4} />}
+                <Check size={12} strokeWidth={3} />
               </button>
 
               {/* Notify */}
               <button
-                onClick={() => toggleNotify(date, subj)}
+                onClick={() => toggleNotify(subj)}
                 disabled={!entry?.note}
-                className={`w-5 h-5 flex items-center justify-center shrink-0 transition-colors ${
-                  entry?.notifyEnabled ? 'text-warning' : 'text-text-3/20'
-                } ${!entry?.note ? 'opacity-0' : ''}`}
+                className={`w-5 h-5 flex items-center justify-center shrink-0 transition-colors ${entry?.notifyEnabled ? 'text-warning' : 'text-text-3/20'
+                  } ${!entry?.note ? 'opacity-0' : ''}`}
                 aria-label="Toggle notification"
               >
                 <Bell size={10} />
@@ -162,7 +176,7 @@ export const PlannerTab: React.FC = () => {
           onClick={() => setCenterDate(toLocalDateStr())}
           className="px-3 py-1 rounded-lg text-xs font-semibold text-text-2 hover:bg-surface-2 transition-colors"
         >
-          {`${formatDisplayDate(dates[0]).replace(/^[a-zA-Z]+,\s*/, '')} — ${formatDisplayDate(dates[dates.length - 1]).replace(/^[a-zA-Z]+,\s*/, '')}`}
+          {`${formatDateDDMMYY(dates[0])} — ${formatDateDDMMYY(dates[dates.length - 1])}`}
         </button>
         <button
           onClick={() => setCenterDate(addDays(centerDate, 7))}

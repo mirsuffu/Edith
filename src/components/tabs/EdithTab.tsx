@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { sendChatMessage, buildSystemPrompt } from '@/services/aiService';
+import { sendChatMessage, buildSystemPrompt, AIError } from '@/services/aiService';
 import { isAIConfigured } from '@/config/ai';
 import { generateId } from '@/utils/dates';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
-import type { ChatSession, ChatMessage } from '@/types';
-import { Send, Plus, Brain, Trash2, MessageSquare, X, Square, ChevronDown, ChevronUp } from 'lucide-react';
+import type { ChatSession, ChatMessage, PendingToolCall } from '@/types';
+import { Send, Plus, Brain, Trash2, MessageSquare, X, Square, Zap } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+const THINKING_KEY = 'edith_thinking_mode';
 
 const quickActions = [
   { label: '🔍 Audit my pace', prompt: 'Audit my current pace and give me honest feedback.' },
@@ -18,6 +20,26 @@ const quickActions = [
   { label: "🔄 What should I revise?", prompt: 'Based on my progress, which subjects should I prioritize for revision right now?' },
   { label: "😮‍💨 I'm burnt out", prompt: "I'm feeling burnt out. Give me a psychological reset and practical advice." },
 ];
+
+/** Fix #10: Context-aware error message */
+const getErrorMessage = (error: any): string => {
+  if (error instanceof AIError) {
+    switch (error.type) {
+      case 'network':
+        return "Edith is disconnected from Suffu's Mind. Check your connection and try again.";
+      case 'capacity':
+        return "Edith is disconnected from Suffu's Mind. Servers are overloaded — wait a while and try again.";
+      case 'api':
+        return "Edith is disconnected from Suffu's Mind. Wait a while and try again.";
+      default:
+        return "Edith is disconnected from Suffu's Mind. Wait a while and try again.";
+    }
+  }
+  if (error?.message?.includes('fetch') || error?.message?.includes('network') || error?.message?.includes('net::')) {
+    return "Edith is disconnected from Suffu's Mind. Check your connection and try again.";
+  }
+  return "Edith is disconnected from Suffu's Mind. Wait a while and try again.";
+};
 
 export const EdithTab: React.FC = () => {
   const data = useAppStore((s) => s.data);
@@ -31,8 +53,6 @@ export const EdithTab: React.FC = () => {
   const edithMemory = data.edithMemory;
   const setEdithMemory = useAppStore((s) => s.setEdithMemory);
   const setPendingToolCall = useAppStore((s) => s.setPendingToolCall);
-  const thinkingEnabled = data.thinkingEnabled;
-  const setThinkingEnabled = useAppStore((s) => s.setThinkingEnabled);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,6 +60,10 @@ export const EdithTab: React.FC = () => {
   const [memoryDraft, setMemoryDraft] = useState(edithMemory);
   const [showSessions, setShowSessions] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  // Fix #8: Thinking toggle
+  const [thinkingEnabled, setThinkingEnabled] = useState(() => {
+    try { return localStorage.getItem(THINKING_KEY) === 'true'; } catch { return false; }
+  });
   const abortRef = useRef<AbortController | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -60,6 +84,15 @@ export const EdithTab: React.FC = () => {
   }, []);
 
   useEffect(() => { autoResize(); }, [input, autoResize]);
+
+  // Fix #8: Persist thinking toggle
+  const toggleThinking = useCallback(() => {
+    setThinkingEnabled((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(THINKING_KEY, String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   const createNewSession = () => {
     const session: ChatSession = {
@@ -104,32 +137,43 @@ export const EdithTab: React.FC = () => {
     abortRef.current = controller;
 
     try {
-      let response = await sendChatMessage(messages, systemPrompt, controller.signal);
+      let response = await sendChatMessage(messages, systemPrompt, controller.signal, thinkingEnabled);
 
-      // Handle tool calls
+      // Fix #11: Handle tool calls — support bulk (multiple at once)
       if (response.toolCalls && response.toolCalls.length > 0) {
-        const call = response.toolCalls[0];
-        if (call.type === 'function') {
-          const args = JSON.parse(call.function.arguments);
-          const toolName = call.function.name;
-
-          // Request user confirmation via the modal
-          const toolResult = await new Promise((resolve, reject) => {
-            setPendingToolCall({
-              id: call.id,
-              name: toolName,
-              args,
-              description: 'AI Action',
-              resolve,
-              reject
-            });
-          });
-
-          // Send result back to AI to get the final verbal response
-          messages.push({ role: 'assistant', content: null, tool_calls: response.toolCalls });
-          messages.push({ role: 'tool', tool_call_id: call.id, name: toolName, content: JSON.stringify(toolResult) });
+        // Process all tool calls via the confirmation modal
+        const toolCalls = response.toolCalls.filter((c: any) => c.type === 'function');
+        
+        if (toolCalls.length > 0) {
+          // For bulk actions, show all in modal. The modal handles the batch.
+          const toolResults: any[] = [];
           
-          response = await sendChatMessage(messages, systemPrompt, controller.signal);
+          for (const call of toolCalls) {
+            const args = JSON.parse(call.function.arguments);
+            const toolName = call.function.name;
+
+            // Request user confirmation via the modal
+            const toolResult = await new Promise((resolve, reject) => {
+              setPendingToolCall({
+                id: call.id,
+                name: toolName,
+                args,
+                description: `AI Action${toolCalls.length > 1 ? ` (${toolResults.length + 1}/${toolCalls.length})` : ''}`,
+                resolve,
+                reject
+              });
+            });
+
+            toolResults.push({ callId: call.id, name: toolName, result: toolResult });
+          }
+
+          // Send all results back to AI for the final verbal response
+          messages.push({ role: 'assistant', content: null, tool_calls: response.toolCalls });
+          for (const tr of toolResults) {
+            messages.push({ role: 'tool', tool_call_id: tr.callId, name: tr.name, content: JSON.stringify(tr.result) });
+          }
+
+          response = await sendChatMessage(messages, systemPrompt, controller.signal, thinkingEnabled);
         }
       }
 
@@ -139,12 +183,9 @@ export const EdithTab: React.FC = () => {
       }
     } catch (e: any) {
       if (e.name !== 'AbortError') {
-        const errMsg: ChatMessage = { 
-          id: generateId(), 
-          role: 'assistant', 
-          content: 'Edith is disconnected from Suffu\'s Mind, Wait a while and try again', 
-          timestamp: new Date().toISOString() 
-        };
+        // Fix #10: Contextual error message
+        const errorText = getErrorMessage(e);
+        const errMsg: ChatMessage = { id: generateId(), role: 'assistant', content: errorText, timestamp: new Date().toISOString() };
         addMessage(sessionId!, errMsg);
       }
     } finally {
@@ -177,26 +218,12 @@ export const EdithTab: React.FC = () => {
               <Brain size={16} />
             </button>
           </div>
-          
-          {/* Desktop Thinking Toggle */}
-          <div className="p-3 border-b border-border">
-            <button 
-              onClick={() => setThinkingEnabled(!thinkingEnabled)}
-              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                thinkingEnabled ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-3 hover:bg-surface-2'
-              }`}
-            >
-              <Brain size={14} className={thinkingEnabled ? 'animate-pulse' : ''} />
-              <span className="text-[11px] font-bold uppercase tracking-tight">Deep Thinking</span>
-            </button>
-          </div>
           <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1">
             {sessions.map((s) => (
               <div key={s.id}
                 onClick={() => setActiveSession(s.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors group ${
-                  s.id === activeSessionId ? 'bg-accent/10 text-accent' : 'text-text-2 hover:bg-surface-2'
-                }`}>
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors group ${s.id === activeSessionId ? 'bg-accent/10 text-accent' : 'text-text-2 hover:bg-surface-2'
+                  }`}>
                 <MessageSquare size={13} className="shrink-0" />
                 <span className="text-xs font-medium truncate flex-1">{s.title}</span>
                 <button onClick={(e) => { e.stopPropagation(); setSessionToDelete(s.id); }}
@@ -222,17 +249,6 @@ export const EdithTab: React.FC = () => {
             <button onClick={() => setShowMemory(true)} className="p-2 rounded-xl border border-border hover:bg-surface-2 text-text-2">
               <Brain size={16} />
             </button>
-            {/* Thinking Toggle */}
-            <button 
-              onClick={() => setThinkingEnabled(!thinkingEnabled)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all ${
-                thinkingEnabled ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-3 hover:bg-surface-2'
-              }`}
-              title="Toggle Deep Thinking"
-            >
-              <Brain size={14} className={thinkingEnabled ? 'animate-pulse' : ''} />
-              <span className="text-[10px] font-bold uppercase tracking-tight hidden sm:inline">Thinking</span>
-            </button>
           </div>
 
           {/* Mobile sessions dropdown */}
@@ -240,9 +256,8 @@ export const EdithTab: React.FC = () => {
             <div className="md:hidden border-b border-border bg-surface-2 p-2 space-y-1 max-h-48 overflow-y-auto">
               {sessions.map((s) => (
                 <button key={s.id} onClick={() => { setActiveSession(s.id); setShowSessions(false); }}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                    s.id === activeSessionId ? 'bg-accent/10 text-accent' : 'text-text-2 hover:bg-surface-3'
-                  }`}>
+                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors ${s.id === activeSessionId ? 'bg-accent/10 text-accent' : 'text-text-2 hover:bg-surface-3'
+                    }`}>
                   {s.title}
                 </button>
               ))}
@@ -265,14 +280,13 @@ export const EdithTab: React.FC = () => {
                 {msg.role === 'assistant' && (
                   <img src={import.meta.env.BASE_URL + 'logo.png'} alt="Edith" className="w-7 h-7 rounded-full shrink-0 mt-1" />
                 )}
-                <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === 'user'
+                <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
                     ? 'bg-accent text-white rounded-br-md'
                     : 'bg-surface-2 border border-border text-text-1 rounded-bl-md'
-                }`}>
+                  }`}>
                   {msg.role === 'assistant' ? (
                     <div className="selectable prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-text-1 [&_code]:bg-surface-3 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent [&_code]:text-xs [&_table]:w-full [&_table]:my-2 [&_th]:border [&_th]:border-border [&_th]:bg-surface-3 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1">
-                      <AssistantMessage content={msg.content} />
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap selectable">{msg.content}</div>
@@ -293,7 +307,9 @@ export const EdithTab: React.FC = () => {
                 <img src={import.meta.env.BASE_URL + 'logo.png'} alt="Edith" className="w-7 h-7 rounded-full shrink-0 mt-1" />
                 <div className="bg-surface-2 border border-border rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-3">
                   <Brain size={14} className="text-accent animate-pulse" />
-                  <div className="text-xs font-semibold text-text-2 tracking-wide">E.D.I.T.H is thinking</div>
+                  <div className="text-xs font-semibold text-text-2 tracking-wide">
+                    {thinkingEnabled ? 'E.D.I.T.H is thinking deeply...' : 'E.D.I.T.H is thinking'}
+                  </div>
                   <div className="flex space-x-1 items-center ml-1">
                     <div className="w-1.5 h-1.5 bg-accent/60 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                     <div className="w-1.5 h-1.5 bg-accent/60 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
@@ -321,8 +337,21 @@ export const EdithTab: React.FC = () => {
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-bg to-transparent pointer-events-none md:hidden" />
           </div>
 
-          {/* Input — auto-resizing textarea */}
+          {/* Input — auto-resizing textarea + thinking toggle */}
           <div className="p-3 border-t border-border flex gap-2 shrink-0 items-end">
+            {/* Fix #8: Thinking toggle */}
+            <button
+              onClick={toggleThinking}
+              className={`p-2 rounded-xl border shrink-0 transition-all ${
+                thinkingEnabled
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border text-text-3 hover:text-text-2 hover:bg-surface-2'
+              }`}
+              aria-label={thinkingEnabled ? 'Disable deep thinking' : 'Enable deep thinking'}
+              title={thinkingEnabled ? 'Thinking: ON — Edith thinks deeper' : 'Thinking: OFF — Quick responses'}
+            >
+              <Zap size={16} />
+            </button>
             <textarea
               ref={textareaRef}
               value={input}
@@ -338,9 +367,9 @@ export const EdithTab: React.FC = () => {
               className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-surface-2 text-sm text-text-1 placeholder:text-text-3 focus:outline-none focus:border-accent resize-none no-scrollbar"
               style={{ maxHeight: '120px' }}
             />
-            <Button 
-              onClick={() => loading ? handleCancel() : handleSend()} 
-              disabled={(!loading && !input.trim())} 
+            <Button
+              onClick={() => loading ? handleCancel() : handleSend()}
+              disabled={(!loading && !input.trim())}
               variant={loading ? 'danger' : 'primary'}
               className="px-4 shrink-0"
               aria-label={loading ? "Stop generation" : "Send message"}
@@ -385,36 +414,5 @@ export const EdithTab: React.FC = () => {
         message="Delete this chat with E.D.I.T.H? Those messages aren't coming back 🪦"
       />
     </div>
-  );
-};
-
-const AssistantMessage: React.FC<{ content: string }> = ({ content }) => {
-  const [showThoughts, setShowThoughts] = useState(false);
-  
-  const thoughtMatch = content.match(/<thought>([\s\S]*?)<\/thought>/);
-  const thoughts = thoughtMatch ? thoughtMatch[1].trim() : null;
-  const actualResponse = content.replace(/<thought>([\s\S]*?)<\/thought>/, '').trim();
-
-  return (
-    <>
-      {thoughts && (
-        <div className="mb-3 border-l-2 border-accent/20 pl-3">
-          <button 
-            onClick={() => setShowThoughts(!showThoughts)}
-            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-accent/60 hover:text-accent transition-colors mb-1"
-          >
-            <Brain size={12} className={showThoughts ? '' : 'animate-pulse'} />
-            {showThoughts ? 'Hide Thinking Process' : 'Show Thinking Process'}
-            {showThoughts ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-          </button>
-          {showThoughts && (
-            <div className="text-[11px] text-text-3 italic bg-surface-3/30 p-2 rounded-lg border border-border/30 animate-in fade-in slide-in-from-top-1 duration-200">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{thoughts}</ReactMarkdown>
-            </div>
-          )}
-        </div>
-      )}
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{actualResponse}</ReactMarkdown>
-    </>
   );
 };

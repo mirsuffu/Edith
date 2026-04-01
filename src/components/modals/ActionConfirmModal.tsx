@@ -71,7 +71,9 @@ export const ActionConfirmModal: React.FC = () => {
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center gap-3 bg-accent/5">
           <Brain className="text-accent" size={20} />
-          <h2 className="font-display text-base font-bold uppercase tracking-tight text-text-1">Edith Action</h2>
+          <h2 className="font-display text-base font-bold uppercase tracking-tight text-text-1">
+            {pendingCall.description || 'Edith Action'}
+          </h2>
         </div>
 
         {/* Content */}

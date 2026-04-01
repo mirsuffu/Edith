@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { LogTestModal } from '@/components/modals/LogTestModal';
-import { generateId, toLocalDateStr } from '@/utils/dates';
+import { generateId, toLocalDateStr, formatDateDDMMYY } from '@/utils/dates';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
 import type { SubjectKey, ScheduledTest } from '@/types';
 import { Trash2, Check, Calendar, Clock } from 'lucide-react';
@@ -79,7 +79,7 @@ export const TestsTab: React.FC = () => {
                   <div>
                     <div className="text-xs font-bold" style={{ color: config[t.subject]?.color }}>{config[t.subject]?.name}</div>
                     <div className="text-[10px] text-text-3 flex items-center gap-1.5 mt-0.5">
-                      <Calendar size={10} /> {t.date}
+                      <Calendar size={10} /> {formatDateDDMMYY(t.date)}
                       <Clock size={10} className="ml-1" /> {t.time}
                       {t.durationMinutes && <span>({t.durationMinutes}m)</span>}
                     </div>
@@ -118,7 +118,7 @@ export const TestsTab: React.FC = () => {
                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: config[t.subject]?.color }} />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-text-1 truncate">{t.topics}</div>
-                    <div className="text-[10px] text-text-3 mt-0.5">{t.date} · {t.marksObtained}/{t.maxMarks}</div>
+                    <div className="text-[10px] text-text-3 mt-0.5">{formatDateDDMMYY(t.date)} · {t.marksObtained}/{t.maxMarks}</div>
                   </div>
                   <span className="font-mono text-sm font-bold text-accent">{pct}%</span>
                 </div>

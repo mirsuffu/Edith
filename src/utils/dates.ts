@@ -24,20 +24,33 @@ export const getDayName = (dateStr: string): string => {
   return d.toLocaleDateString('en-US', { weekday: 'long' });
 };
 
-/** e.g. "30-03-26" */
+/** e.g. "Mon, 30-03-26" */
 export const formatDisplayDate = (dateStr: string): string => {
   const d = new Date(dateStr + 'T12:00:00');
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = String(d.getFullYear()).slice(-2);
-  return `${day}-${month}-${year}`;
+  const year = String(d.getFullYear()).slice(2);
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+  return `${weekday}, ${day}-${month}-${year}`;
 };
 
 /** Full display: "Monday, 30-03-26" */
 export const formatFullDate = (dateStr: string): string => {
   const d = new Date(dateStr + 'T12:00:00');
-  const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-  return `${dayName}, ${formatDisplayDate(dateStr)}`;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).slice(2);
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+  return `${weekday}, ${day}-${month}-${year}`;
+};
+
+/** Just DD-MM-YY (no weekday) */
+export const formatDateDDMMYY = (dateStr: string): string => {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).slice(2);
+  return `${day}-${month}-${year}`;
 };
 
 /**

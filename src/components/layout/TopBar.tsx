@@ -1,8 +1,9 @@
 import React from 'react';
 import { useAppStore } from '@/store/appStore';
 import { useStats } from '@/hooks/useStats';
-import { Sparkles, Loader, WifiOff, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Sparkles, Loader, WifiOff, AlertTriangle, RefreshCcw } from 'lucide-react';
 import { debouncedFirestoreSync } from '@/services/firestoreService';
+import { isFirebaseConfigured } from '@/config/firebase';
 import { toast } from '@/utils/toast';
 
 /**
@@ -13,9 +14,19 @@ export const TopBar: React.FC = () => {
   const syncStatus = useAppStore((s) => s.syncStatus);
   const setShowTodayModal = useAppStore((s) => s.setShowTodayModal);
   const userName = useAppStore((s) => s.userProfile?.name);
+  const user = useAppStore((s) => s.user);
   const stats = useStats();
 
   const showName = userName && userName !== 'Student' && userName.trim() !== '';
+
+  const handleManualSync = () => {
+    if (!isFirebaseConfigured || !user) {
+      toast.info('Sync unavailable — not logged in.');
+      return;
+    }
+    toast.info('Syncing...');
+    debouncedFirestoreSync(500);
+  };
 
   const syncIcon = {
     idle: null,
@@ -23,12 +34,6 @@ export const TopBar: React.FC = () => {
     error: <AlertTriangle size={12} className="text-danger" />,
     offline: <WifiOff size={12} className="text-warning" />,
   }[syncStatus];
-
-  const handleManualSync = () => {
-    if (syncStatus === 'syncing') return;
-    debouncedFirestoreSync(0);
-    toast.info('Manual sync triggered...');
-  };
 
   return (
     <div
@@ -41,15 +46,19 @@ export const TopBar: React.FC = () => {
         <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">
           days left
         </span>
+        {/* Sync status icon + manual sync button */}
         <div className="flex items-center gap-1 ml-1">
           {syncIcon && <span>{syncIcon}</span>}
-          <button
-            onClick={handleManualSync}
-            className="p-1 rounded-md hover:bg-surface-2 text-text-3 hover:text-accent transition-colors"
-            title="Sync manual data"
-          >
-            <RefreshCw size={10} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
-          </button>
+          {isFirebaseConfigured && (
+            <button
+              onClick={handleManualSync}
+              className="p-1 rounded-md hover:bg-surface-2 text-text-3 hover:text-accent transition-colors active:scale-90"
+              aria-label="Manual sync"
+              title="Sync now"
+            >
+              <RefreshCcw size={11} />
+            </button>
+          )}
         </div>
       </div>
 
