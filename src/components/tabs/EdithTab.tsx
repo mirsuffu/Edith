@@ -391,54 +391,39 @@ export const EdithTab: React.FC = React.memo(() => {
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-bg to-transparent pointer-events-none md:hidden" />
           </div>
 
-          {/* Input — auto-resizing textarea + toggles */}
-          <div className="p-3 border-t border-border flex flex-col gap-2 shrink-0">
-            {/* Toggles row */}
-            <div className="flex gap-2 px-1">
-              <button
-                onClick={toggleThinking}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold transition-all ${
-                  thinkingEnabled
-                    ? 'border-accent bg-accent/10 text-accent shadow-[0_0_10px_rgba(var(--accent-rgb),0.2)]'
-                    : 'border-border bg-surface-2 text-text-3 hover:text-text-2'
-                }`}
-                title={thinkingEnabled ? 'Thinking: ON — Using Super 120B' : 'Thinking: OFF — Using Nano 30B'}
-              >
-                <Zap size={12} className={thinkingEnabled ? 'fill-current' : ''} />
-                <span>Deep Thinking</span>
-              </button>
+          {/* Input — Unified Command Bar */}
+          <div className="p-4 border-t border-border flex flex-col gap-2 shrink-0">
+            <div className={`group flex items-end gap-2 p-1.5 rounded-2xl border bg-surface-2 transition-all duration-200 ${
+              loading ? 'opacity-80' : 'focus-within:border-accent/50 focus-within:shadow-[0_0_15px_rgba(var(--accent-rgb),0.05)]'
+            }`}>
+              {/* Left Toggles (Icon Only) */}
+              <div className="flex items-center gap-1 pl-1 pb-1">
+                <button
+                  onClick={toggleThinking}
+                  className={`p-2 rounded-xl border transition-all ${
+                    thinkingEnabled
+                      ? 'border-accent/30 bg-accent/10 text-accent shadow-[0_0_10px_rgba(var(--accent-rgb),0.15)]'
+                      : 'border-transparent text-text-3 hover:text-text-2 hover:bg-surface-3'
+                  }`}
+                  title={thinkingEnabled ? 'Thinking: ON (Super 120B)' : 'Thinking: OFF (Nano 30B)'}
+                >
+                  <Zap size={15} className={thinkingEnabled ? 'fill-current' : ''} />
+                </button>
 
-              <button
-                onClick={toggleWebSearch}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold transition-all ${
-                  webSearchEnabled
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.2)]'
-                    : 'border-border bg-surface-2 text-text-3 hover:text-text-2'
-                }`}
-                title={webSearchEnabled ? 'Search: ON — Real-time Web Access' : 'Search: OFF — Local Knowledge'}
-              >
-                <Globe size={12} className={webSearchEnabled ? 'animate-pulse' : ''} />
-                <span>Live Web Search</span>
-              </button>
-
-              {/* State Indicator */}
-              <div className="ml-auto flex items-center gap-2 px-2 py-1 rounded-lg bg-surface-3 border border-border">
-                <div className={`w-1.5 h-1.5 rounded-full ${
-                  thinkingEnabled && webSearchEnabled ? 'bg-purple-500 animate-pulse' :
-                  thinkingEnabled ? 'bg-accent' :
-                  webSearchEnabled ? 'bg-blue-500' :
-                  'bg-green-500'
-                }`} />
-                <span className="text-[9px] font-mono text-text-3 uppercase tracking-tighter">
-                  {thinkingEnabled && webSearchEnabled ? 'Research Mode' :
-                   thinkingEnabled ? 'Deep Logic' :
-                   webSearchEnabled ? 'Fast Fact-Check' :
-                   'Blazing Fast'}
-                </span>
+                <button
+                  onClick={toggleWebSearch}
+                  className={`p-2 rounded-xl border transition-all ${
+                    webSearchEnabled
+                      ? 'border-blue-500/30 bg-blue-500/10 text-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.15)]'
+                      : 'border-transparent text-text-3 hover:text-text-2 hover:bg-surface-3'
+                  }`}
+                  title={webSearchEnabled ? 'Search: ON (Real-time)' : 'Search: OFF (Local)'}
+                >
+                  <Globe size={15} className={webSearchEnabled ? 'animate-pulse' : ''} />
+                </button>
               </div>
-            </div>
 
-            <div className="flex gap-2 items-end">
+              {/* Textarea Core */}
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -447,7 +432,6 @@ export const EdithTab: React.FC = React.memo(() => {
                   isTypingRef.current = true;
                 }}
                 onBlur={() => {
-                  // Short delay to see if we're moving focus to another interactive element
                   setTimeout(() => {
                     const activeEl = document.activeElement;
                     const isInteractive = activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'A';
@@ -474,20 +458,41 @@ export const EdithTab: React.FC = React.memo(() => {
                 rows={1}
                 inputMode="text"
                 autoComplete="off"
-                className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-surface-2 text-sm text-text-1 placeholder:text-text-3 focus:outline-none focus:border-accent resize-none no-scrollbar transition-colors"
+                className="flex-1 px-2 py-2 bg-transparent text-sm text-text-1 placeholder:text-text-3 focus:outline-none resize-none no-scrollbar min-h-[40px]"
                 style={{ maxHeight: '120px' }}
               />
-              <Button
-                onClick={() => loading ? handleCancel() : handleSend()}
-                disabled={(!loading && !input.trim())}
-                variant={loading ? 'danger' : 'primary'}
-                className="px-4 shrink-0 h-[42px]"
-                aria-label={loading ? "Stop generation" : "Send message"}
-              >
-                {loading ? <Square size={16} fill="currentColor" /> : <Send size={16} />}
-              </Button>
+
+              {/* Right Status + Send */}
+              <div className="flex items-center gap-2 pr-1 pb-1">
+                {/* State Indicator (Compact) */}
+                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-3/50 border border-border/50">
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    thinkingEnabled && webSearchEnabled ? 'bg-purple-500 animate-pulse' :
+                    thinkingEnabled ? 'bg-accent' :
+                    webSearchEnabled ? 'bg-blue-500' :
+                    'bg-green-500'
+                  }`} />
+                  <span className="text-[8px] font-mono text-text-3 uppercase tracking-tighter whitespace-nowrap">
+                    {thinkingEnabled && webSearchEnabled ? 'Research' :
+                     thinkingEnabled ? 'Logic' :
+                     webSearchEnabled ? 'Fact-Check' :
+                     'Fast'}
+                  </span>
+                </div>
+
+                <Button
+                  onClick={() => loading ? handleCancel() : handleSend()}
+                  disabled={(!loading && !input.trim())}
+                  variant={loading ? 'danger' : 'primary'}
+                  className="w-9 h-9 p-0 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95"
+                  aria-label={loading ? "Stop generation" : "Send message"}
+                >
+                  {loading ? <Square size={14} fill="currentColor" /> : <Send size={14} />}
+                </Button>
+              </div>
             </div>
           </div>
+
         </div>
       </div>
 
