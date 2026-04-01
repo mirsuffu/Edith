@@ -52,13 +52,26 @@ const App: React.FC = () => {
   const activeTab = useAppStore((s) => s.activeTab);
   const themeMode = useAppStore((s) => s.data.themeMode);
   const fullScreenEnabled = useAppStore((s) => s.data.fullScreenEnabled);
-  const updatedAt = useAppStore((s) => s.data.updatedAt);
   const lastWelcomeShown = useAppStore((s) => s.data.lastWelcomeShownDate);
   const setShowWelcomeModal = useAppStore((s) => s.setShowWelcomeModal);
   const setLastWelcomeShownDate = useAppStore((s) => s.setLastWelcomeShownDate);
   const setSyncStatus = useAppStore((s) => s.setSyncStatus);
   const user = useAppStore((s) => s.user);
   const prevThemeRef = useRef<string | null>(null);
+
+  // Firestore sync (Background listener - does not trigger re-render)
+  useEffect(() => {
+    if (!user || !fbConfigured) return;
+    
+    // Subscribe to store changes to trigger sync
+    const unsub = useAppStore.subscribe(
+      (state) => state.data.updatedAt,
+      (updatedAt) => {
+        if (updatedAt) debouncedFirestoreSync();
+      }
+    );
+    return () => unsub();
+  }, [user, fbConfigured]);
 
   // Theme
   useEffect(() => {
@@ -167,11 +180,6 @@ const App: React.FC = () => {
     document.addEventListener('click', handleGlobalClick, true);
     return () => document.removeEventListener('click', handleGlobalClick, true);
   }, [handleGlobalClick]);
-
-  // Firestore sync
-  useEffect(() => {
-    if (user && fbConfigured) debouncedFirestoreSync();
-  }, [updatedAt, user, fbConfigured]);
 
   // Loading screen
   if (authLoading) {

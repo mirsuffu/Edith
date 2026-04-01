@@ -42,6 +42,7 @@ const getErrorMessage = (error: any): string => {
 };
 
 export const EdithTab: React.FC = React.memo(() => {
+  // Use more granular selectors to avoid unnecessary re-renders
   const sessions = useAppStore((s) => s.data.edithChatSessions);
   const activeSessionId = useAppStore((s) => s.data.activeEdithSessionId);
   const edithMemory = useAppStore((s) => s.data.edithMemory);
@@ -60,7 +61,9 @@ export const EdithTab: React.FC = React.memo(() => {
   const [memoryDraft, setMemoryDraft] = useState(edithMemory);
   const [showSessions, setShowSessions] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  
+  // Use ref for focus-locking to avoid re-renders and ensure stability
+  const isTypingRef = useRef(false);
 
   // Fix #8: Thinking toggle
   const [thinkingEnabled, setThinkingEnabled] = useState(() => {
@@ -79,29 +82,30 @@ export const EdithTab: React.FC = React.memo(() => {
   // Stable focus-lock mechanism
   useEffect(() => {
     const handleFocusLock = () => {
-      if (isTyping && textareaRef.current && document.activeElement !== textareaRef.current) {
-        textareaRef.current.focus();
+      // If we are typing and focus is lost (except for legitimate reasons like clicking a button), regain focus
+      if (isTypingRef.current && textareaRef.current && document.activeElement !== textareaRef.current) {
+        // Check if the new active element is a button or input (to allow navigation)
+        const activeEl = document.activeElement;
+        const isInteractive = activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'A';
+        
+        if (!isInteractive) {
+          textareaRef.current.focus();
+        }
       }
     };
     
-    // Check focus every 50ms if typing
-    const interval = isTyping ? setInterval(handleFocusLock, 50) : null;
-    return () => { if (interval) clearInterval(interval); };
-  }, [isTyping]);
+    // Check focus every 30ms if typing (higher frequency for better mobile feel)
+    const interval = setInterval(handleFocusLock, 30);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-resize textarea
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (el) {
-      // Use a more stable resize that doesn't trigger layout thrashing
-      const currentHeight = el.style.height;
       el.style.height = 'auto';
       const newHeight = `${Math.min(el.scrollHeight, 120)}px`;
-      if (currentHeight !== newHeight) {
-        el.style.height = newHeight;
-      } else {
-        el.style.height = currentHeight;
-      }
+      el.style.height = newHeight;
     }
   }, []);
 
@@ -130,6 +134,8 @@ export const EdithTab: React.FC = React.memo(() => {
     const text = (prompt || input).trim();
     if (!text || loading) return;
 
+    isTypingRef.current = false; // Stop focus lock during send
+
     if (!isAIConfigured) { toast.error(TOAST_MESSAGES.aiNotConfigured); return; }
 
     // Ensure we have a session
@@ -148,8 +154,13 @@ export const EdithTab: React.FC = React.memo(() => {
     const userMsg: ChatMessage = { id: generateId(), role: 'user', content: text, timestamp: new Date().toISOString() };
     addMessage(sessionId!, userMsg);
     setInput('');
-    setIsTyping(false);
     setLoading(true);
+
+    // Re-focus after send (mobile optimization)
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      isTypingRef.current = true;
+    }, 100);
 
     // Get all messages for context
     const currentSession = useAppStore.getState().data.edithChatSessions.find((s) => s.id === sessionId);
@@ -380,11 +391,20 @@ export const EdithTab: React.FC = React.memo(() => {
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
-                if (!isTyping) setIsTyping(true);
+                isTypingRef.current = true;
               }}
               onBlur={() => {
-                // Delay setting isTyping to false to allow focus-lock to work
-                setTimeout(() => setIsTyping(false), 100);
+                // Short delay to see if we're moving focus to another interactive element
+                setTimeout(() => {
+                  const activeEl = document.activeElement;
+                  const isInteractive = activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'A';
+                  if (!isInteractive) {
+                    isTypingRef.current = false;
+                  }
+                }, 100);
+              }}
+              onFocus={() => {
+                isTypingRef.current = true;
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -394,6 +414,8 @@ export const EdithTab: React.FC = React.memo(() => {
               }}
               placeholder="Ask Edith anything..."
               rows={1}
+              inputMode="text"
+              autoComplete="off"
               className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-surface-2 text-sm text-text-1 placeholder:text-text-3 focus:outline-none focus:border-accent resize-none no-scrollbar"
               style={{ maxHeight: '120px' }}
             />
