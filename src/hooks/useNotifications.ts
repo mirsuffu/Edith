@@ -5,7 +5,6 @@ import {
   scheduleLocalNotification,
   cancelNotification,
   isNotificationSupported,
-  getNotificationPermission,
 } from '@/services/notificationService';
 
 export const useNotifications = () => {
@@ -16,7 +15,7 @@ export const useNotifications = () => {
     const result = await requestNotificationPermission();
     setNotificationsEnabled(result === 'granted');
     return result;
-  }, []);
+  }, [setNotificationsEnabled]);
 
   const schedule = useCallback(async (id: string, title: string, body: string, at: string) => {
     if (!notificationsEnabled) return;
@@ -29,7 +28,7 @@ export const useNotifications = () => {
 
   return {
     isSupported: isNotificationSupported(),
-    permission: getNotificationPermission(),
+    permission: typeof Notification !== 'undefined' ? Notification.permission : 'default',
     notificationsEnabled,
     requestPermission,
     schedule,
