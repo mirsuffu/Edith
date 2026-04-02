@@ -169,15 +169,16 @@ export const scheduleLocalNotification = async (
     const targetUnixTimeMs = new Date(scheduledAt).getTime();
 
     // Instead of local Service Worker message, write to Firestore!
-    const notifRef = doc(collection(db, 'scheduled_notifications'), id);
+    // We use a top-level collection so the Vercel Cron can find it easily.
+    const notifRef = doc(db, 'scheduled_notifications', id);
     await setDoc(notifRef, {
       id,
       title,
       body,
       scheduledAt,       // the human-readable ISO string
-      targetTimeMs: targetUnixTimeMs, // used by cron job to easily check "< Date.now()"
+      targetTimeMs: targetUnixTimeMs, // used by cron job
       token,             // who gets the message
-      status: 'pending', // marks as waiting to be sent
+      status: 'pending', 
       createdAt: Date.now()
     });
 
