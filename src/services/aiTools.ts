@@ -218,6 +218,7 @@ export const executeToolCall = (name: string, args: any): { success: boolean; re
 
       case 'add_planner_entry': {
         const entry: PlannerEntry = {
+          id: generateId(),
           date: normalizeDate(args.date),
           subject: args.subject,
           note: (args.note || '').slice(0, 50),
