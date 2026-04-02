@@ -68,6 +68,8 @@ export default async function handler(req, res) {
           body: data.body || '',
         },
         data: {
+          title: data.title || 'E.D.I.T.H',
+          body: data.body || '',
           url: '/'
         }
       };
