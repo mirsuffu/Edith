@@ -1,7 +1,7 @@
 /* E.D.I.T.H Service Worker — Notification Engine */
 /* Handles FCM push events and local scheduled notifications */
 
-const CACHE_NAME = 'edith-v6';
+const CACHE_NAME = 'edith-v7';
 const NOTIFICATION_STORE = 'edith-notifications';
 
 /* ---- IndexedDB helpers for pending notifications ---- */

@@ -177,22 +177,24 @@ export const sendChatMessage = async (
 
       // Task #5: Intercept Web Search tool calls immediately
       if (message.tool_calls && webSearchEnabled) {
-        const searchCall = message.tool_calls.find((c: any) => c.function.name === 'web_search');
-        if (searchCall) {
-          const { query } = JSON.parse(searchCall.function.arguments);
-          const searchResult = await searchWeb(query);
+        const searchCalls = message.tool_calls.filter((c: any) => c.function.name === 'web_search');
+        if (searchCalls.length > 0) {
+          // Task #6: Request Limiting (5 for Thinking, 2 for Fast)
+          const searchLimit = thinkingEnabled ? 5 : 2;
+          const limitedCalls = searchCalls.slice(0, searchLimit);
           
-          // Feed the search result back into the message history
-          const searchContextMessages = [
-            ...fullMessages,
-            message,
-            {
+          const searchContextMessages = [...fullMessages, message];
+          
+          for (const call of limitedCalls) {
+            const { query } = JSON.parse(call.function.arguments);
+            const searchResult = await searchWeb(query);
+            searchContextMessages.push({
               role: 'tool',
-              tool_call_id: searchCall.id,
+              tool_call_id: call.id,
               name: 'web_search',
               content: searchResult,
-            }
-          ];
+            });
+          }
 
           // Secondary call for the final grounded answer
           const finalRes = await fetch(fetchUrl, {
