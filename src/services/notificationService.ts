@@ -27,20 +27,30 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
   
   if (permission === 'granted') {
     try {
+      console.log('Permission granted, fetching FCM token...');
       const messaging = await getMessagingInstance();
       if (messaging) {
         const reg = await navigator.serviceWorker.ready;
+        console.log('Service Worker ready, requesting token with VAPID key...');
         const currentToken = await getToken(messaging, { 
           vapidKey: VAPID_KEY,
           serviceWorkerRegistration: reg 
         });
         if (currentToken) {
           localStorage.setItem('fcm_token', currentToken);
-          console.log('FCM Token retrieved successfully.');
+          console.log('FCM Token retrieved successfully:', currentToken.slice(0, 10) + '...');
+          toast.success('Notifications fully enabled!');
+        } else {
+          console.warn('No registration token available. Request permission to generate one.');
+          toast.error('Failed to generate Device ID. Try again.');
         }
+      } else {
+        console.warn('Messaging instance could not be initialized.');
+        toast.error('Device does not support push notifications.');
       }
     } catch (err) {
-      console.warn('An error occurred while retrieving token. ', err);
+      console.error('An error occurred while retrieving token. ', err);
+      toast.error('Error connecting to notification service.');
     }
   }
   return permission;

@@ -9,6 +9,7 @@ import { SUBJECT_KEYS, WHATSAPP_CONTACT_URL } from '@/constants';
 import { signOutUser, resetPassword } from '@/services/authService';
 import { validateImportStructure } from '@/utils/validateImport';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
+import { useNotifications } from '@/hooks/useNotifications';
 import { isFirebaseConfigured } from '@/config/firebase';
 import type { ThemeMode } from '@/types';
 import {
@@ -60,6 +61,8 @@ export const SettingsTab: React.FC = () => {
   const importData = useAppStore((s) => s.importData);
   const setUserName = useAppStore((s) => s.setUserName);
   const setEdithMemory = useAppStore((s) => s.setEdithMemory);
+  
+  const { requestPermission: requestBrowserPermission } = useNotifications();
 
   const { isEditorMode, enableEditorMode, disableEditorMode } = useEditorMode();
   const [showEditorModal, setShowEditorModal] = useState(false);
@@ -257,7 +260,18 @@ export const SettingsTab: React.FC = () => {
       </Section>
 
       <Section title="Notifications" icon={<Bell size={14} />} defaultOpen={false}>
-        <Toggle checked={data.notificationsEnabled} onChange={setNotificationsEnabled} label="Enable all notifications" />
+        <Toggle 
+          checked={data.notificationsEnabled} 
+          onChange={(val) => {
+            if (val) {
+              requestBrowserPermission();
+            } else {
+              setNotificationsEnabled(false);
+              localStorage.removeItem('fcm_token');
+            }
+          }} 
+          label="Enable all notifications" 
+        />
       </Section>
 
       <Section title="Data" icon={<Download size={14} />} defaultOpen={false}>
