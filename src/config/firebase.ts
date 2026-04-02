@@ -1,9 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getMessaging } from 'firebase/messaging';
 
-// PLACEHOLDER — Replace with real Firebase project config
-// See FIREBASE_SETUP_GUIDE.md for step-by-step instructions
+// Real Firebase project config
 const firebaseConfig = {
   apiKey: "AIzaSyBe11U4RkUbpvs-H0YbJH8oIztS0f5r4Dc",
   authDomain: "edith-4f693.firebaseapp.com",
@@ -16,11 +16,13 @@ const firebaseConfig = {
 // Only init Firebase if config is provided
 const hasConfig = true;
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Paste your FCM VAPID key here
+// FCM VAPID key (Web Push Certificate)
 export const VAPID_KEY = "BB2SuH4VAVFH4HbgQBwYy3hp5sui3BRl1v_NDvsSgf8xZ-lXsXK8xdXQO2gN-jg9rTyt25_Wcf5x2R6tATtmZYk";
+
+export const messaging = getMessaging(app);
 
 export const isFirebaseConfigured = hasConfig;

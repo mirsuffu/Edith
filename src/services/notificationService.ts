@@ -1,5 +1,8 @@
 /** Notification service — wraps service worker messaging and permission requests */
 import { toast } from '@/utils/toast';
+import { messaging, db, VAPID_KEY } from '@/config/firebase';
+import { getToken } from 'firebase/messaging';
+import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 export type NotificationFailureType = 
   | 'PERMISSION_DENIED'
@@ -22,7 +25,25 @@ export const getNotificationPermission = (): NotificationPermission =>
 
 export const requestNotificationPermission = async (): Promise<NotificationPermission> => {
   if (!isNotificationSupported()) return 'denied';
-  return await Notification.requestPermission();
+  const permission = await Notification.requestPermission();
+  
+  if (permission === 'granted') {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const currentToken = await getToken(messaging, { 
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: reg 
+      });
+      if (currentToken) {
+        // Save this token to local storage so we can use it to schedule
+        localStorage.setItem('fcm_token', currentToken);
+        console.log('FCM Token retrieved successfully.');
+      }
+    } catch (err) {
+      console.warn('An error occurred while retrieving token. ', err);
+    }
+  }
+  return permission;
 };
 
 /** Retry queue with exponential back-off */
@@ -129,37 +150,49 @@ export const scheduleLocalNotification = async (
     return;
   }
 
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    if (!reg.active) throw new Error('SW not active');
+  const token = localStorage.getItem('fcm_token');
+  if (!token) {
+    toast.error('Push token missing. Please toggle notifications off and on in Settings.');
+    return;
+  }
 
+  try {
     // Validate payload
     if (!id || !title || !scheduledAt) {
       throw new Error('Invalid notification payload');
     }
 
-    reg.active.postMessage({
-      type: 'SCHEDULE_NOTIFICATION',
-      payload: { id, title, body, scheduledAt },
+    // Determine target Unix timestamp for the backend
+    const targetUnixTimeMs = new Date(scheduledAt).getTime();
+
+    // Instead of local Service Worker message, write to Firestore!
+    const notifRef = doc(collection(db, 'scheduled_notifications'), id);
+    await setDoc(notifRef, {
+      id,
+      title,
+      body,
+      scheduledAt,       // the human-readable ISO string
+      targetTimeMs: targetUnixTimeMs, // used by cron job to easily check "< Date.now()"
+      token,             // who gets the message
+      status: 'pending', // marks as waiting to be sent
+      createdAt: Date.now()
     });
+
   } catch (e: any) {
-    console.warn('Notification scheduling failed, adding to retry queue:', e);
-    retryQueue.push({ 
-      notif: { id, title, body, scheduledAt }, 
-      attempt: 1 
-    });
-    processRetryQueue();
+    console.error('Failed to schedule notification in Firestore', e);
+    toast.error('Failed to schedule notification check your connection or permissions.');
   }
 };
 
 export const cancelNotification = async (id: string): Promise<void> => {
   if (!isNotificationSupported()) return;
 
-  const reg = await navigator.serviceWorker.ready;
-  reg.active?.postMessage({
-    type: 'CANCEL_NOTIFICATION',
-    payload: { id },
-  });
+  try {
+    const notifRef = doc(collection(db, 'scheduled_notifications'), id);
+    await deleteDoc(notifRef);
+  } catch (e) {
+    console.warn('Failed to delete scheduled notification from Firestore', e);
+  }
 };
 
 /** Register the custom service worker */
