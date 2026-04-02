@@ -37,6 +37,8 @@
     "typescript": "^5.5.2",
     "vite": "^6.3.0",
     "vite-plugin-pwa": "^0.21.1",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "workbox-core": "^7.4.0",
+    "workbox-precaching": "^7.4.0"
   }
 }

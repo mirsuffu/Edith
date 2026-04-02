@@ -84,12 +84,12 @@ export const registerServiceWorker = async (): Promise<void> => {
   if (!isNotificationSupported()) return;
 
   try {
-    // Determine the path to sw.js based on base path (usually root for Vercel)
+    // Determine the path to sw based on base path (usually root for Vercel)
     const base = import.meta.env.BASE_URL || '/';
-    const swPath = `${base}sw.js`.replace(/\/+/g, '/');
+    const swPath = `${base}sw-custom.js`.replace(/\/+/g, '/');
     
-    await navigator.serviceWorker.register(swPath, { scope: base });
-    console.log('Service Worker registered successfully');
+    const registration = await navigator.serviceWorker.register(swPath, { scope: base });
+    console.log('Service Worker registered successfully:', registration.scope);
   } catch (err) {
     console.error('Service Worker registration failed:', err);
   }

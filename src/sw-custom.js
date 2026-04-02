@@ -1,3 +1,8 @@
+import { precacheAndRoute } from 'workbox-precaching';
+
+// Precaches all the files Vite generated (CSS, HTML, JS) to ensure offline support is retained
+precacheAndRoute(self.__WB_MANIFEST);
+
 /* E.D.I.T.H Service Worker — Notification Engine */
 /* Handles FCM push events and local scheduled notifications */
 
