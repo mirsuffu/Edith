@@ -47,6 +47,7 @@ export const EdithTab: React.FC = React.memo(() => {
   const activeSessionId = useAppStore((s) => s.data.activeEdithSessionId);
   const edithMemory = useAppStore((s) => s.data.edithMemory);
   const userName = useAppStore((s) => s.userProfile?.name || 'Student');
+  const activeTab = useAppStore((s) => s.activeTab);
   
   const addSession = useAppStore((s) => s.addChatSession);
   const addMessage = useAppStore((s) => s.addChatMessage);
@@ -82,6 +83,9 @@ export const EdithTab: React.FC = React.memo(() => {
 
   // Stable focus-lock mechanism
   useEffect(() => {
+    // Only run focus lock when the Edith tab is actually active
+    if (activeTab !== 'edith') return;
+
     const handleFocusLock = (e: FocusEvent) => {
       // If we are typing and focus is lost, and it wasn't to an interactive element, snap back
       if (isTypingRef.current && textareaRef.current && e.target === textareaRef.current) {
@@ -90,6 +94,7 @@ export const EdithTab: React.FC = React.memo(() => {
           const activeEl = document.activeElement;
           const isInteractive = activeEl?.tagName === 'BUTTON' || 
                               activeEl?.tagName === 'INPUT' || 
+                              activeEl?.tagName === 'TEXTAREA' ||
                               activeEl?.tagName === 'A' ||
                               activeEl?.closest('[role="button"]');
           
@@ -106,7 +111,11 @@ export const EdithTab: React.FC = React.memo(() => {
     const interval = setInterval(() => {
       if (isTypingRef.current && textareaRef.current && document.activeElement !== textareaRef.current) {
         const activeEl = document.activeElement;
-        const isInteractive = activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'A';
+        const isInteractive = activeEl?.tagName === 'BUTTON' || 
+                            activeEl?.tagName === 'INPUT' || 
+                            activeEl?.tagName === 'TEXTAREA' || 
+                            activeEl?.tagName === 'A' ||
+                            activeEl?.closest('[role="button"]');
         if (!isInteractive) {
           textareaRef.current.focus();
         }
@@ -117,7 +126,7 @@ export const EdithTab: React.FC = React.memo(() => {
       document.removeEventListener('blur', handleFocusLock, true);
       clearInterval(interval);
     };
-  }, []);
+  }, [activeTab]);
 
   // Auto-resize textarea
   const autoResize = useCallback(() => {

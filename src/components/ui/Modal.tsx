@@ -20,16 +20,29 @@ export const Modal: React.FC<ModalProps> = ({
     if (open) playPop();
   }, [open]);
 
+  // Handle Escape key
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKey);
-    // Focus trap: focus the modal on open
-    modalRef.current?.focus();
     return () => document.removeEventListener('keydown', handleKey);
   }, [open, onClose]);
+
+  // Initial focus
+  useEffect(() => {
+    if (open) {
+      // Focus trap: focus the modal on open, but only if focus isn't already inside the modal (e.g. via autoFocus)
+      // Use requestAnimationFrame to let autoFocus elements grab focus first
+      const frame = requestAnimationFrame(() => {
+        if (modalRef.current && !modalRef.current.contains(document.activeElement)) {
+          modalRef.current.focus();
+        }
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [open]);
 
   if (!open) return null;
 
