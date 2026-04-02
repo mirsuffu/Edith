@@ -2,7 +2,7 @@
 import { toast } from '@/utils/toast';
 import { getMessagingInstance, db, VAPID_KEY } from '@/config/firebase';
 import { getToken } from 'firebase/messaging';
-import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 export type NotificationFailureType = 
   | 'PERMISSION_DENIED'
@@ -18,13 +18,11 @@ export interface NotificationFailureReport {
 }
 
 export const isNotificationSupported = (): boolean =>
-  'Notification' in window && 'serviceWorker' in navigator;
-
-export const getNotificationPermission = (): NotificationPermission =>
-  isNotificationSupported() ? Notification.permission : 'denied';
+  'serviceWorker' in navigator && 'Notification' in window && 'PushManager' in window;
 
 export const requestNotificationPermission = async (): Promise<NotificationPermission> => {
-  if (!isNotificationSupported()) return 'denied';
+  if (!isNotificationSupported()) return 'default';
+  
   const permission = await Notification.requestPermission();
   
   if (permission === 'granted') {
@@ -37,7 +35,6 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
           serviceWorkerRegistration: reg 
         });
         if (currentToken) {
-          // Save this token to local storage so we can use it to schedule
           localStorage.setItem('fcm_token', currentToken);
           console.log('FCM Token retrieved successfully.');
         }
@@ -61,85 +58,73 @@ const processRetryQueue = async () => {
     const reg = await navigator.serviceWorker.ready;
     reg.active?.postMessage({
       type: 'SCHEDULE_NOTIFICATION',
-      payload: notif,
+      payload: notif
     });
-  } catch (e) {
-    if (attempt < 5) {
-      const delay = Math.pow(2, attempt) * 1000;
+  } catch (err) {
+    if (attempt < 3) {
       setTimeout(() => {
         retryQueue.push({ notif, attempt: attempt + 1 });
         processRetryQueue();
-      }, delay);
+      }, 2000 * Math.pow(2, attempt));
     }
   }
 };
 
-/** Diagnose the notification pipeline and produce a report */
-export const diagnoseNotificationPipeline = async (): Promise<NotificationFailureReport> => {
-  if (!isNotificationSupported()) {
-    return {
-      type: 'SW_NOT_INSTALLED',
-      details: 'Browser does not support notifications or service workers.',
-      timestamp: new Date().toISOString(),
-    };
-  }
+export const registerServiceWorker = async (): Promise<void> => {
+  if (!isNotificationSupported()) return;
 
-  const permission = Notification.permission;
-  if (permission === 'denied') {
-    return {
-      type: 'PERMISSION_DENIED',
-      details: 'User has blocked notification permissions.',
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  const reg = await navigator.serviceWorker.getRegistration();
-  if (!reg) {
-    return {
-      type: 'SW_NOT_INSTALLED',
-      details: 'No active service worker registration found.',
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  // Check if SW is active
-  if (!reg.active) {
-    return {
-      type: 'SW_NOT_INSTALLED',
-      details: 'Service worker is registered but not active.',
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  // Attempt to ping the SW
   try {
-    const channel = new MessageChannel();
-    const pingPromise = new Promise((resolve, reject) => {
-      channel.port1.onmessage = (event) => {
-        if (event.data === 'pong') resolve('ok');
-        else reject(new Error('Unexpected SW response'));
-      };
-      setTimeout(() => reject(new Error('SW ping timeout')), 2000);
-    });
-
-    reg.active.postMessage({ type: 'PING' }, [channel.port2]);
-    await pingPromise;
-  } catch (e: any) {
-    return {
-      type: 'BACKGROUND_THROTTLING',
-      details: `Service worker communication failed: ${e.message}`,
-      timestamp: new Date().toISOString(),
-    };
+    // Determine the path to sw.js based on base path (usually root for Vercel)
+    const base = import.meta.env.BASE_URL || '/';
+    const swPath = `${base}sw.js`.replace(/\/+/g, '/');
+    
+    await navigator.serviceWorker.register(swPath, { scope: base });
+    console.log('Service Worker registered successfully');
+  } catch (err) {
+    console.error('Service Worker registration failed:', err);
   }
-
-  return {
-    type: 'UNKNOWN',
-    details: 'Pipeline appears healthy, but delivery might be silent due to OS focus mode or browser throttling.',
-    timestamp: new Date().toISOString(),
-  };
 };
 
 export const scheduleLocalNotification = async (
+  id: string,
+  title: string,
+  body: string,
+  scheduledAt: string // ISO datetime
+): Promise<void> => {
+  if (!isNotificationSupported()) return;
+
+  const permission = Notification.permission;
+  if (permission !== 'granted') {
+    // If not granted, we can't do anything
+    return;
+  }
+
+  const notif = { id, title, body, scheduledAt };
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg.active) {
+      reg.active.postMessage({
+        type: 'SCHEDULE_NOTIFICATION',
+        payload: notif
+      });
+    } else {
+      retryQueue.push({ notif, attempt: 0 });
+      processRetryQueue();
+    }
+  } catch (err) {
+    retryQueue.push({ notif, attempt: 0 });
+    processRetryQueue();
+  }
+};
+
+/**
+ * ROCK-SOLID Notification Scheduling
+ * Writes directly to Firestore collection 'scheduled_notifications'.
+ * A serverless cron job on Vercel periodically checks this collection
+ * and dispatches notifications via FCM.
+ */
+export const schedulePersistentNotification = async (
   id: string,
   title: string,
   body: string,
@@ -155,36 +140,40 @@ export const scheduleLocalNotification = async (
 
   const token = localStorage.getItem('fcm_token');
   if (!token) {
-    toast.error('Push token missing. Please toggle notifications off and on in Settings.');
+    toast.error('Device ID (Token) missing. Try toggling notifications in Settings.');
     return;
   }
 
   try {
     // Validate payload
     if (!id || !title || !scheduledAt) {
-      throw new Error('Invalid notification payload');
+      throw new Error('Invalid notification data');
     }
 
-    // Determine target Unix timestamp for the backend
     const targetUnixTimeMs = new Date(scheduledAt).getTime();
+    if (isNaN(targetUnixTimeMs)) {
+      throw new Error('Invalid scheduled time');
+    }
 
-    // Instead of local Service Worker message, write to Firestore!
-    // We use a top-level collection so the Vercel Cron can find it easily.
+    // Write to root-level collection readable by Vercel Backend
     const notifRef = doc(db, 'scheduled_notifications', id);
     await setDoc(notifRef, {
       id,
       title,
       body,
-      scheduledAt,       // the human-readable ISO string
-      targetTimeMs: targetUnixTimeMs, // used by cron job
-      token,             // who gets the message
+      scheduledAt,
+      targetTimeMs: targetUnixTimeMs,
+      token,
       status: 'pending', 
       createdAt: Date.now()
     });
-
-  } catch (e: any) {
-    console.error('Failed to schedule notification in Firestore', e);
-    toast.error('Failed to schedule notification check your connection or permissions.');
+    
+    console.log('Notification scheduled in Firestore:', id);
+    toast.success('Reminder scheduled successfully!');
+    
+  } catch (err: any) {
+    console.error('Scheduling error:', err);
+    toast.error(`Failed to schedule: ${err.message || 'Unknown error'}`);
   }
 };
 
@@ -192,24 +181,19 @@ export const cancelNotification = async (id: string): Promise<void> => {
   if (!isNotificationSupported()) return;
 
   try {
-    const notifRef = doc(collection(db, 'scheduled_notifications'), id);
-    await deleteDoc(notifRef);
-  } catch (e) {
-    console.warn('Failed to delete scheduled notification from Firestore', e);
-  }
-};
+    // 1. Cancel local SW timer
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({
+      type: 'CANCEL_NOTIFICATION',
+      payload: { id }
+    });
 
-/** Register the custom service worker */
-export const registerServiceWorker = async (): Promise<void> => {
-  if ('serviceWorker' in navigator) {
-    try {
-      // Use BASE_URL to correctly register from sub-directory (Fixes 404 error)
-      const swPath = `${import.meta.env.BASE_URL}sw.js`.replace(/\/+/g, '/');
-      await navigator.serviceWorker.register(swPath, {
-        scope: import.meta.env.BASE_URL
-      });
-    } catch (e) {
-      console.warn('Service worker registration failed:', e);
-    }
+    // 2. Delete from Firestore
+    const notifRef = doc(db, 'scheduled_notifications', id);
+    await deleteDoc(notifRef);
+    
+    toast.info('Notification cancelled.');
+  } catch (err) {
+    console.warn('Error cancelling notification:', err);
   }
 };
