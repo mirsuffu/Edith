@@ -98,19 +98,29 @@ self.addEventListener('activate', (event) => {
 
 /* ---- Push event (FCM) ---- */
 self.addEventListener('push', (event) => {
-  let data = { title: 'E.D.I.T.H', body: 'Time to study!' };
+  console.log('Push event received!', event);
+  let payload = { title: 'E.D.I.T.H', body: 'Time to study!' };
+  
   try {
-    if (event.data) data = event.data.json();
+    if (event.data) {
+      payload = event.data.json();
+      console.log('Push payload parsed:', payload);
+    }
   } catch (e) {
-    if (event.data) data.body = event.data.text();
+    console.warn('Push payload not JSON, falling back to text.');
+    if (event.data) payload.body = event.data.text();
   }
 
+  // Ensure title and body are available even if nested
+  const title = payload.title || (payload.notification ? payload.notification.title : 'E.D.I.T.H');
+  const body = payload.body || (payload.notification ? payload.notification.body : '');
+
   event.waitUntil(
-    self.registration.showNotification(data.title || 'E.D.I.T.H', {
-      body: data.body || '',
+    self.registration.showNotification(title, {
+      body: body,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
-      data: { url: data.url || '/' },
+      data: { url: payload.url || '/' },
     })
   );
 });

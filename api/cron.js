@@ -63,10 +63,6 @@ export default async function handler(req, res) {
       
       const payload = {
         token: data.token,
-        notification: {
-          title: data.title || 'E.D.I.T.H',
-          body: data.body || '',
-        },
         data: {
           title: data.title || 'E.D.I.T.H',
           body: data.body || '',
