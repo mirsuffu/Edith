@@ -33,21 +33,30 @@ export default async function handler(req, res) {
     const messaging = admin.messaging();
     const now = Date.now();
 
-    // 1. Fetch pending notifications where targetTimeMs <= now
+    // FIXED: Only query by 'status' to avoid the need for a composite index!
     const snapshot = await db.collection('scheduled_notifications')
       .where('status', '==', 'pending')
-      .where('targetTimeMs', '<=', now)
       .get();
 
     if (snapshot.empty) {
-      return res.status(200).json({ message: 'No pending notifications to send.', count: 0 });
+      return res.status(200).json({ message: 'No pending notifications found in DB.', count: 0 });
     }
 
     let sentCount = 0;
     const batch = db.batch();
 
+    // Filter by time in memory instead of in the query
+    const dueNotifications = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        return data.targetTimeMs <= now; 
+    });
+
+    if (dueNotifications.length === 0) {
+        return res.status(200).json({ message: 'Notifications exist but none are due yet.', count: 0 });
+    }
+
     // 2. Loop through and send
-    for (const doc of snapshot.docs) {
+    for (const doc of dueNotifications) {
       const data = doc.data();
       
       const payload = {
@@ -75,7 +84,8 @@ export default async function handler(req, res) {
         if (err.code === 'messaging/invalid-registration-token' || err.code === 'messaging/registration-token-not-registered') {
           batch.update(doc.ref, { status: 'failed_invalid_token' });
         } else {
-          batch.update(doc.ref, { status: 'failed', error: err.message });
+          // Keep it as pending or mark as error
+          batch.update(doc.ref, { status: 'error', lastError: err.message });
         }
       }
     }
@@ -87,6 +97,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('Error processing cron job:', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: 'Internal Server Error', details: err.message });
   }
 }
