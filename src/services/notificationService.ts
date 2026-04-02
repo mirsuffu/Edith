@@ -95,37 +95,17 @@ export const registerServiceWorker = async (): Promise<void> => {
   }
 };
 
+/**
+ * Legacy local scheduling — now upgraded to use the persistent engine
+ * to ensure reliability even if the browser stops the worker timer.
+ */
 export const scheduleLocalNotification = async (
   id: string,
   title: string,
   body: string,
-  scheduledAt: string // ISO datetime
+  scheduledAt: string
 ): Promise<void> => {
-  if (!isNotificationSupported()) return;
-
-  const permission = Notification.permission;
-  if (permission !== 'granted') {
-    // If not granted, we can't do anything
-    return;
-  }
-
-  const notif = { id, title, body, scheduledAt };
-
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    if (reg.active) {
-      reg.active.postMessage({
-        type: 'SCHEDULE_NOTIFICATION',
-        payload: notif
-      });
-    } else {
-      retryQueue.push({ notif, attempt: 0 });
-      processRetryQueue();
-    }
-  } catch (err) {
-    retryQueue.push({ notif, attempt: 0 });
-    processRetryQueue();
-  }
+  return schedulePersistentNotification(id, title, body, scheduledAt);
 };
 
 /**
