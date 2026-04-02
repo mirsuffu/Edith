@@ -1,15 +1,17 @@
-import admin from 'firebase-admin';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
 
 // Initialize Firebase Admin (Only once per cold start)
-if (!admin.apps.length) {
+if (!getApps().length) {
   try {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!serviceAccountJson) {
       console.error("Missing FIREBASE_SERVICE_ACCOUNT environment variable.");
     } else {
       const serviceAccount = JSON.parse(serviceAccountJson);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      initializeApp({
+        credential: cert(serviceAccount)
       });
     }
   } catch (error) {
@@ -29,8 +31,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const db = admin.firestore();
-    const messaging = admin.messaging();
+    const db = getFirestore();
+    const messaging = getMessaging();
     const now = Date.now();
 
     // FIXED: Only query by 'status' to avoid the need for a composite index!
@@ -75,7 +77,7 @@ export default async function handler(req, res) {
         // Mark as sent
         batch.update(doc.ref, { 
             status: 'sent', 
-            sentAt: admin.firestore.FieldValue.serverTimestamp() 
+            sentAt: FieldValue.serverTimestamp() 
         });
         sentCount++;
       } catch (err) {
