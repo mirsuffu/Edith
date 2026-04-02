@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getMessaging } from 'firebase/messaging';
+import { isSupported, getMessaging } from 'firebase/messaging';
 
 // Real Firebase project config
 const firebaseConfig = {
@@ -13,9 +13,6 @@ const firebaseConfig = {
   appId: "1:199651360117:web:82732458f9a9a6ff08673c",
 };
 
-// Only init Firebase if config is provided
-const hasConfig = true;
-
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
@@ -23,6 +20,15 @@ export const db = getFirestore(app);
 // FCM VAPID key (Web Push Certificate)
 export const VAPID_KEY = "BB2SuH4VAVFH4HbgQBwYy3hp5sui3BRl1v_NDvsSgf8xZ-lXsXK8xdXQO2gN-jg9rTyt25_Wcf5x2R6tATtmZYk";
 
-export const messaging = getMessaging(app);
+// Export as a promise-based getter to handle async support check (prevents mobile crashes)
+export const getMessagingInstance = async () => {
+    try {
+        const supported = await isSupported();
+        return supported ? getMessaging(app) : null;
+    } catch (e) {
+        console.warn('FCM not supported in this environment:', e);
+        return null;
+    }
+};
 
-export const isFirebaseConfigured = hasConfig;
+export const isFirebaseConfigured = true;

@@ -1,6 +1,6 @@
 /** Notification service — wraps service worker messaging and permission requests */
 import { toast } from '@/utils/toast';
-import { messaging, db, VAPID_KEY } from '@/config/firebase';
+import { getMessagingInstance, db, VAPID_KEY } from '@/config/firebase';
 import { getToken } from 'firebase/messaging';
 import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
@@ -29,15 +29,18 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
   
   if (permission === 'granted') {
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const currentToken = await getToken(messaging, { 
-        vapidKey: VAPID_KEY,
-        serviceWorkerRegistration: reg 
-      });
-      if (currentToken) {
-        // Save this token to local storage so we can use it to schedule
-        localStorage.setItem('fcm_token', currentToken);
-        console.log('FCM Token retrieved successfully.');
+      const messaging = await getMessagingInstance();
+      if (messaging) {
+        const reg = await navigator.serviceWorker.ready;
+        const currentToken = await getToken(messaging, { 
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: reg 
+        });
+        if (currentToken) {
+          // Save this token to local storage so we can use it to schedule
+          localStorage.setItem('fcm_token', currentToken);
+          console.log('FCM Token retrieved successfully.');
+        }
       }
     } catch (err) {
       console.warn('An error occurred while retrieving token. ', err);

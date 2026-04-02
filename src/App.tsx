@@ -59,6 +59,8 @@ const App: React.FC = () => {
   const user = useAppStore((s) => s.user);
   const prevThemeRef = useRef<string | null>(null);
 
+  const lastSyncRef = useRef<string>('');
+
   // Firestore sync (Background listener - does not trigger re-render)
   useEffect(() => {
     if (!user || !fbConfigured) return;
@@ -66,7 +68,11 @@ const App: React.FC = () => {
     // Subscribe to store changes to trigger sync
      const unsub = useAppStore.subscribe(
        (state) => {
-         if (state.data.updatedAt) debouncedFirestoreSync();
+         const currentTs = state.data.updatedAt;
+         if (currentTs && currentTs !== lastSyncRef.current) {
+           lastSyncRef.current = currentTs;
+           debouncedFirestoreSync();
+         }
        }
      );
      return () => unsub();
