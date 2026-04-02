@@ -63,6 +63,7 @@ export interface SyllabusChapter {
 
 /* ===== Planner ===== */
 export interface PlannerEntry {
+  id: string;
   date: string;
   subject: SubjectKey;
   note: string;

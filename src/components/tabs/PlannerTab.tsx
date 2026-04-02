@@ -3,10 +3,11 @@ import { useAppStore } from '@/store/appStore';
 import { useEditorMode } from '@/hooks/useEditorMode';
 import { SUBJECT_KEYS } from '@/constants';
 import type { SubjectKey, PlannerEntry } from '@/types';
-import { toLocalDateStr, getWeekDates, formatDateDDMMYY, isToday, isPast, addDays, getDayName } from '@/utils/dates';
+import { toLocalDateStr, getWeekDates, formatDateDDMMYY, isToday, isPast, addDays, getDayName, generateId } from '@/utils/dates';
 import { Check, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from '@/utils/toast';
 import { useCardPop } from '@/hooks/useSounds';
+import { schedulePersistentNotification, cancelNotification } from '@/services/notificationService';
 
 /** Local-state input that only commits on blur/Enter — prevents defocus on every keystroke */
 const DebouncedInput = memo<{
@@ -63,6 +64,7 @@ const DayCard = memo<{
     if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
     const existing = getEntry(date, subject);
     updatePlannerEntry({
+      id: existing?.id || generateId(),
       date, subject, note,
       ticked: existing?.ticked || false,
       notifyEnabled: existing?.notifyEnabled || false,
@@ -79,7 +81,20 @@ const DayCard = memo<{
   const toggleNotify = useCallback((subject: SubjectKey) => {
     const existing = getEntry(date, subject);
     if (!existing?.note) return;
-    updatePlannerEntry({ ...existing, notifyEnabled: !existing.notifyEnabled });
+    const newNotify = !existing.notifyEnabled;
+    updatePlannerEntry({ ...existing, notifyEnabled: newNotify });
+
+    if (newNotify) {
+      // Schedule for 8:00 AM on that day
+      schedulePersistentNotification(
+        existing.id || generateId(),
+        `Study: ${config[subject].name}`,
+        existing.note,
+        `${date}T08:00:00`
+      );
+    } else {
+      cancelNotification(existing.id);
+    }
   }, [date, planner]);
 
   const dateType = today ? 'today' : past ? 'past' : 'future';

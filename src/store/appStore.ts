@@ -419,9 +419,9 @@ export const useAppStore = create<AppStore>()(
           (p) => p.date === entry.date && p.subject === entry.subject
         );
         if (idx >= 0) {
-          s.data.progress.planner[idx] = entry;
+          s.data.progress.planner[idx] = { ...entry, id: entry.id || s.data.progress.planner[idx].id || generateId() };
         } else {
-          s.data.progress.planner.push(entry);
+          s.data.progress.planner.push({ ...entry, id: entry.id || generateId() });
         }
         s.data.updatedAt = new Date().toISOString();
         saveToLocalStorage(s.data);

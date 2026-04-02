@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { generateId, addDays, formatFullDate, isTomorrow, toLocalDateStr } from '@/utils/dates';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
+import { schedulePersistentNotification, cancelNotification } from '@/services/notificationService';
 import type { SubjectKey, ScheduleItem } from '@/types';
 import { Plus, Trash2, Check, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
@@ -47,7 +48,23 @@ export const ScheduleTab: React.FC = () => {
       notifyEnabled: fNotify, completed: false,
     };
     addItem(item);
-    toast.success(TOAST_MESSAGES.scheduleAdded);
+    
+    if (item.notifyEnabled && item.date !== '__fixed__') {
+      // Schedule for 10 mins before start time
+      const [h, m] = item.startTime.split(':').map(Number);
+      const dateObj = new Date(`${item.date}T${item.startTime}:00`);
+      dateObj.setMinutes(dateObj.getMinutes() - 10);
+      
+      schedulePersistentNotification(
+        item.id,
+        item.customTitle,
+        `Starting in 10 min: ${config[item.subject || 'accounts']?.name || 'Study session'}`,
+        dateObj.toISOString()
+      );
+    } else {
+      toast.success(TOAST_MESSAGES.scheduleAdded);
+    }
+    
     setShowAddModal(false);
     setFTitle(''); setFSubject(''); setFTime('09:00'); setFDuration('60');
   };
@@ -150,7 +167,11 @@ export const ScheduleTab: React.FC = () => {
         open={!!itemToDelete}
         onClose={() => setItemToDelete(null)}
         onConfirm={() => {
-          if (itemToDelete) { deleteItem(itemToDelete); toast.info(TOAST_MESSAGES.scheduleItemDeleted); }
+          if (itemToDelete) { 
+            cancelNotification(itemToDelete);
+            deleteItem(itemToDelete); 
+            toast.info(TOAST_MESSAGES.scheduleItemDeleted); 
+          }
         }}
         title="Delete Item"
         message="Delete this schedule item?"

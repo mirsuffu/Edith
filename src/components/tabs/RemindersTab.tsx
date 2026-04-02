@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { generateId } from '@/utils/dates';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
 import { useNotifications } from '@/hooks/useNotifications';
+import { schedulePersistentNotification, cancelNotification } from '@/services/notificationService';
 import type { Reminder } from '@/types';
 import { Bell, Trash2, Plus, Clock, Repeat } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
@@ -50,7 +51,19 @@ export const RemindersTab: React.FC = () => {
     };
 
     addReminder(reminder);
-    toast.success(TOAST_MESSAGES.reminderSet);
+    
+    // Also schedule persistently if enabled
+    if (reminder.notifyEnabled) {
+      schedulePersistentNotification(
+        reminder.id,
+        reminder.title,
+        reminder.body || 'Reminder from Edith',
+        reminder.scheduledAt
+      );
+    } else {
+      toast.success(TOAST_MESSAGES.reminderSet);
+    }
+    
     setShowAdd(false);
     setTitle(''); setBody(''); setDate(''); setRepeat('none');
   };
@@ -136,6 +149,7 @@ export const RemindersTab: React.FC = () => {
         onClose={() => setReminderToDelete(null)}
         onConfirm={() => {
           if (reminderToDelete) {
+            cancelNotification(reminderToDelete); // Also deletes from Firestore
             deleteReminder(reminderToDelete);
             toast.info(TOAST_MESSAGES.reminderDeleted);
           }
