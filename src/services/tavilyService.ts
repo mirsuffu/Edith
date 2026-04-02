@@ -2,7 +2,7 @@
 export const TAVILY_CONFIG = {
   baseUrl: "https://api.tavily.com",
   // In a production app, this should be an environment variable.
-  apiKey: "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", 
+  apiKey: "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", 
 };
 
 export interface TavilySearchResponse {
