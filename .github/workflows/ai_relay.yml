@@ -24,16 +24,31 @@ jobs:
 
           async function run() {
             const requestId = process.env.REQUEST_ID;
+            console.log('--- START RELAY ---');
+            console.log('Request ID:', requestId);
+            
             let db;
             try {
+              // 1. Validate Env Vars
+              if (!process.env.FIREBASE_SERVICE_ACCOUNT) throw new Error('Missing FIREBASE_SERVICE_ACCOUNT secret');
+              if (!process.env.NVIDIA_API_KEY) throw new Error('Missing NVIDIA_API_KEY secret');
+              if (!process.env.PAYLOAD) throw new Error('Missing PAYLOAD from client');
+
+              console.log('Firebase Secret Length:', process.env.FIREBASE_SERVICE_ACCOUNT.length);
+
+              // 2. Init Firebase
               const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
               initializeApp({ credential: cert(sa) });
               db = getFirestore();
-              const payload = JSON.parse(process.env.PAYLOAD);
               
+              // 3. Parse Payload
+              const payload = JSON.parse(process.env.PAYLOAD);
               const { messages, model, temperature, top_p, max_tokens } = payload;
-              console.log('Processing request for ID:', requestId);
+              
+              console.log('Model:', model);
+              console.log('Messages count:', messages?.length);
 
+              // 4. Call AI
               const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -41,8 +56,8 @@ jobs:
                   'Authorization': 'Bearer ' + process.env.NVIDIA_API_KEY
                 },
                 body: JSON.stringify({
-                  model,
-                  messages,
+                  model: model || "nvidia/nemotron-3-nano-30b-a3b",
+                  messages: messages,
                   temperature: temperature || 0.2,
                   top_p: top_p || 0.7,
                   max_tokens: max_tokens || 1024,
@@ -52,24 +67,41 @@ jobs:
 
               if (!response.ok) {
                 const text = await response.text();
-                throw new Error(`NVIDIA API Error ${response.status}: ${text}`);
+                throw new Error(`AI API Provider Error (${response.status}): ${text.slice(0, 200)}`);
               }
 
               const data = await response.json();
+              if (!data.choices || !data.choices[0]) {
+                throw new Error('AI Provider returned empty choices');
+              }
+
+              // 5. Write Success
               await db.collection('ai_responses').doc(requestId).set({
                 content: data.choices[0].message.content,
                 status: 'completed',
                 timestamp: Date.now()
               });
-              console.log('Success for ID:', requestId);
+              console.log('--- SUCCESS ---');
             } catch (err) {
-              console.error('Fatal Error:', err.message);
-              if (db && requestId) {
-                await db.collection('ai_responses').doc(requestId).set({
-                  error: err.message,
-                  status: 'error',
-                  timestamp: Date.now()
-                });
+              console.error('--- FATAL ERROR ---');
+              console.error(err.message);
+              
+              // Attempt to write error to Firestore so UI knows
+              try {
+                if (!db && process.env.FIREBASE_SERVICE_ACCOUNT) {
+                   const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                   initializeApp({ credential: cert(sa) }, 'error-app');
+                   db = getFirestore('error-app');
+                }
+                if (db && requestId) {
+                  await db.collection('ai_responses').doc(requestId).set({
+                    error: err.message,
+                    status: 'error',
+                    timestamp: Date.now()
+                  });
+                }
+              } catch (innerErr) {
+                console.error('Failed to write error to Firestore:', innerErr.message);
               }
               process.exit(1);
             }
