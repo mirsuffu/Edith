@@ -45,6 +45,7 @@ const defaultAppData: AppData = {
   pacingAlertThreshold: DEFAULT_PACE_ALERT_THRESHOLD,
   lastWelcomeShownDate: null,
   updatedAt: '1970-01-01T00:00:00.000Z',
+  githubToken: null,
 };
 
 /* ===== Store interface ===== */
@@ -142,6 +143,7 @@ interface AppStore {
   clearAllData: (deleteFromCloud?: boolean) => void;
   importData: (imported: AppData) => void;
   setLastWelcomeShownDate: (date: string) => void;
+  setGithubToken: (token: string | null) => void;
 
   // Hydration
   hydrateFromStorage: () => void;
@@ -246,7 +248,8 @@ const migrateData = (raw: Record<string, unknown>): AppData => {
     pacingAlertThreshold: r.pacingAlertThreshold ?? DEFAULT_PACE_ALERT_THRESHOLD,
     lastWelcomeShownDate: r.lastWelcomeShownDate || null,
     updatedAt: r.updatedAt || '1970-01-01T00:00:00.000Z',
-    userName: r.userName || undefined,
+    userName: r.userName || null,
+    githubToken: r.githubToken || null,
   };
 };
 
@@ -601,6 +604,11 @@ export const useAppStore = create<AppStore>()(
 
       setLastWelcomeShownDate: (date) => set((s) => {
         s.data.lastWelcomeShownDate = date;
+        saveToLocalStorage(s.data);
+      }),
+
+      setGithubToken: (token) => set((s) => {
+        s.data.githubToken = token;
         saveToLocalStorage(s.data);
       }),
 

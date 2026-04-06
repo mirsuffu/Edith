@@ -1,0 +1,86 @@
+name: AI Request Relay
+
+# This workflow acts as a server-side proxy for NVIDIA AI requests to bypass CORS
+# Triggered by 'repository_dispatch' from the Edith PWA client
+on:
+  repository_dispatch:
+    types: [ai_request]
+
+jobs:
+  ai-process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install firebase-admin@13
+
+      - name: Call NVIDIA and Write to Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          # The client sends the full request payload in client_payload
+          PAYLOAD: ${{ JSON.stringify(github.event.client_payload) }}
+        run: |
+          node -e "
+          const { initializeApp, cert } = require('firebase-admin/app');
+          const { getFirestore } = require('firebase-admin/firestore');
+
+          (async () => {
+            try {
+              const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+              initializeApp({ credential: cert(sa) });
+              const db = getFirestore();
+              const event = JSON.parse(process.env.PAYLOAD);
+              const { requestId, messages, model, temperature, top_p, max_tokens } = event;
+
+              console.log('Processing AI request:', requestId);
+
+              const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + process.env.NVIDIA_API_KEY
+                },
+                body: JSON.stringify({
+                  model,
+                  messages,
+                  temperature,
+                  top_p,
+                  max_tokens,
+                  stream: false
+                })
+              });
+
+              if (!response.ok) {
+                const errText = await response.text();
+                throw new Error('NVIDIA API error: ' + response.status + ' - ' + errText);
+              }
+
+              const data = await response.json();
+              
+              // Write response to firestore for the client to pick up
+              await db.collection('ai_responses').doc(requestId).set({
+                content: data.choices[0].message.content,
+                status: 'completed',
+                timestamp: Date.now()
+              });
+
+              console.log('Successfully wrote response for:', requestId);
+            } catch (err) {
+              console.error('Relay error:', err);
+              // Write error to firestore so client stops waiting
+              const event = JSON.parse(process.env.PAYLOAD);
+              const db = getFirestore();
+              await db.collection('ai_responses').doc(event.requestId).set({
+                error: err.message,
+                status: 'error',
+                timestamp: Date.now()
+              });
+              process.exit(1);
+            }
+          })();
+          "

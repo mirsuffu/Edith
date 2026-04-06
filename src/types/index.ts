@@ -191,5 +191,6 @@ export interface AppData {
   pacingAlertThreshold: number;
   lastWelcomeShownDate: string | null;
   updatedAt: string;
-  userName?: string;
+  userName?: string | null;
+  githubToken?: string | null;
 }

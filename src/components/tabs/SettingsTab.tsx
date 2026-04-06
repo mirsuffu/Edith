@@ -16,7 +16,7 @@ import {
   User, Mail, LogOut, KeyRound, Calendar,
   Moon, Sun, Monitor, Clock, Download, Upload, Trash2,
   Brain, MessageCircle, Bell, Lock, Unlock,
-  ChevronDown,
+  ChevronDown, Shield,
 } from 'lucide-react';
 
 /** Collapsible section — collapsed by default when `defaultOpen` is false */
@@ -61,6 +61,7 @@ export const SettingsTab: React.FC = () => {
   const importData = useAppStore((s) => s.importData);
   const setUserName = useAppStore((s) => s.setUserName);
   const setEdithMemory = useAppStore((s) => s.setEdithMemory);
+  const setGithubToken = useAppStore((s) => s.setGithubToken);
   
   const { requestPermission: requestBrowserPermission } = useNotifications();
 
@@ -273,6 +274,29 @@ export const SettingsTab: React.FC = () => {
           }} 
           label="Enable all notifications" 
         />
+      </Section>
+
+      <Section title="GitHub Connectivity" icon={<Shield size={14} />} defaultOpen={true}>
+        <div className="space-y-3">
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Required for AI and Backups. See the <a href="https://github.com/mirsuffu/Edith/blob/main/github_setup_guide.md" target="_blank" className="text-primary underline">Setup Guide</a> for instructions.
+          </p>
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Personal Access Token</label>
+            <div className="flex gap-2">
+              <input 
+                type="password"
+                value={data.githubToken || ''}
+                onChange={(e) => setGithubToken(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxx"
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary/50 transition-colors"
+              />
+              {data.githubToken && (
+                <Button size="sm" variant="ghost" onClick={() => setGithubToken(null)} className="text-danger hover:bg-danger/10">Clear</Button>
+              )}
+            </div>
+          </div>
+        </div>
       </Section>
 
       <Section title="Data" icon={<Download size={14} />} defaultOpen={false}>

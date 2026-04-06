@@ -192,15 +192,16 @@ export const EdithTab: React.FC = React.memo(() => {
     }, 100);
 
     // Get all messages for context
-    const currentSession = useAppStore.getState().data.edithChatSessions.find((s) => s.id === sessionId);
+    const data = useAppStore.getState().data;
+    const currentSession = data.edithChatSessions.find((s) => s.id === sessionId);
     const messages: any[] = (currentSession?.messages || []).map((m) => ({ role: m.role, content: m.content }));
 
-    const systemPrompt = buildSystemPrompt(useAppStore.getState().data, userName);
+    const systemPrompt = buildSystemPrompt(data, userName);
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      let response = await sendChatMessage(messages, systemPrompt, controller.signal, thinkingEnabled, webSearchEnabled);
+      let response = await sendChatMessage(messages, systemPrompt, data, controller.signal, thinkingEnabled, webSearchEnabled);
 
       // Fix #11: Handle tool calls — support bulk (multiple at once)
       if (response.toolCalls && response.toolCalls.length > 0) {
@@ -236,7 +237,7 @@ export const EdithTab: React.FC = React.memo(() => {
             messages.push({ role: 'tool', tool_call_id: tr.callId, name: tr.name, content: JSON.stringify(tr.result) });
           }
 
-          response = await sendChatMessage(messages, systemPrompt, controller.signal, thinkingEnabled);
+          response = await sendChatMessage(messages, systemPrompt, data, controller.signal, thinkingEnabled);
         }
       }
 
