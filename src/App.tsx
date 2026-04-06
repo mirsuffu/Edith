@@ -191,8 +191,37 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex items-center justify-center bg-bg">
         <div className="text-center">
-          <img src={import.meta.env.BASE_URL + 'logo.png'} alt="E.D.I.T.H" className="w-20 h-20 mx-auto rounded-2xl mb-4" />
-          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spinner mx-auto" />
+          {/* Custom fan loader animation */}
+          <div style={{ position: 'relative', width: 130, height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+            <div
+              style={{
+                position: 'absolute',
+                width: 50,
+                height: 50,
+                borderRadius: '50%',
+                background: 'conic-gradient(from 0deg, var(--accent, #3b82f6) 0%, transparent 40%, transparent 50%, var(--accent, #3b82f6) 50%, transparent 90%)',
+                animation: 'edith-fan-spin 1s linear infinite',
+                zIndex: 2,
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                width: 50,
+                height: 50,
+                borderRadius: '50%',
+                zIndex: 1,
+                animation: 'edith-ring-pulse 1.5s infinite cubic-bezier(0.215, 0.61, 0.355, 1)',
+              }}
+            />
+          </div>
+          <style>{`
+            @keyframes edith-fan-spin { to { transform: rotate(-360deg); } }
+            @keyframes edith-ring-pulse {
+              0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent, #3b82f6) 70%, transparent); }
+              100% { box-shadow: 0 0 0 40px color-mix(in srgb, var(--accent, #3b82f6) 0%, transparent); }
+            }
+          `}</style>
         </div>
       </div>
     );

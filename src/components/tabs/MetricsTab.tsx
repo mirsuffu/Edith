@@ -49,7 +49,7 @@ export const MetricsTab: React.FC = () => {
       value: `${stats.requiredPerDay}`,
       icon: <Calendar size={16} />,
       color: 'text-text-1',
-      description: 'The number of lectures you need to complete daily to finish all lectures before the exam. Lower is better.',
+      description: 'The number of lectures you need to complete daily to finish all lectures before the Lectures Deadline. Calculated as: remaining lectures ÷ days to Lectures Deadline.',
     },
   ];
 

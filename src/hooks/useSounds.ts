@@ -1,11 +1,10 @@
 /**
- * Sound utility — preloads click & pop sounds and exposes
- * global playClick / playPop helpers.
+ * Sound utility — preloads click sound and exposes
+ * global playClick helper.
  *
  * Usage:
- *   import { playClick, playPop } from '@/hooks/useSounds';
- *   playClick();   // on tap / click
- *   playPop();     // on modal open / card appear
+ *   import { playClick } from '@/hooks/useSounds';
+ *   playClick();   // on tap / click / modal open
  */
 
 const BASE = import.meta.env.BASE_URL;
@@ -14,7 +13,6 @@ const BASE = import.meta.env.BASE_URL;
 
 let audioCtx: AudioContext | null = null;
 let clickBuffer: AudioBuffer | null = null;
-let popBuffer: AudioBuffer | null = null;
 
 function initAudio() {
   if (typeof window === 'undefined') return;
@@ -27,12 +25,6 @@ function initAudio() {
       .then(r => r.arrayBuffer())
       .then(b => audioCtx!.decodeAudioData(b))
       .then(buf => { clickBuffer = buf; })
-      .catch(() => {});
-
-    fetch(`${BASE}sounds/pop.mp3`)
-      .then(r => r.arrayBuffer())
-      .then(b => audioCtx!.decodeAudioData(b))
-      .then(buf => { popBuffer = buf; })
       .catch(() => {});
   }
 }
@@ -58,10 +50,6 @@ export function playClick() {
   try { playBuffer(clickBuffer); } catch {}
 }
 
-export function playPop() {
-  try { playBuffer(popBuffer); } catch {}
-}
-
 import { useEffect, useRef } from 'react';
 
 let mountCounter = 0;
@@ -81,8 +69,7 @@ export function useCardPop() {
 
     const idx = mountCounter++;
     const delay = Math.min(idx * 50, 400);
-    const t = setTimeout(() => playPop(), delay);
+    const t = setTimeout(() => playClick(), delay);
     return () => clearTimeout(t);
   }, []);
 }
-

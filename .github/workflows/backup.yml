@@ -1,0 +1,84 @@
+name: Firestore Backup Mirror
+
+# Runs daily at midnight UTC — mirrors Firestore data to a private GitHub Gist
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install firebase-admin
+        run: npm install firebase-admin@13
+
+      - name: Fetch & Mirror Firestore Data
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          BACKUP_GIST_ID: ${{ secrets.BACKUP_GIST_ID }}
+          BACKUP_GIST_TOKEN: ${{ secrets.BACKUP_GIST_TOKEN }}
+        run: |
+          node -e "
+          const { initializeApp, cert } = require('firebase-admin/app');
+          const { getFirestore } = require('firebase-admin/firestore');
+
+          (async () => {
+            const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+            initializeApp({ credential: cert(sa) });
+            const db = getFirestore();
+
+            // Fetch master data
+            const usersSnap = await db.collection('users').listDocuments();
+            const backup = {};
+
+            for (const userDoc of usersSnap) {
+              const dataSnap = await db.doc(userDoc.path + '/data/master').get();
+              if (dataSnap.exists) {
+                backup[userDoc.id] = dataSnap.data();
+              }
+
+              // Also backup chat sessions
+              const chatsSnap = await db.collection(userDoc.path + '/chats').get();
+              if (!chatsSnap.empty) {
+                backup[userDoc.id + '_chats'] = {};
+                chatsSnap.forEach(c => {
+                  backup[userDoc.id + '_chats'][c.id] = c.data();
+                });
+              }
+            }
+
+            const content = JSON.stringify(backup, null, 2);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+            // Update Gist
+            const res = await fetch('https://api.github.com/gists/' + process.env.BACKUP_GIST_ID, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': 'token ' + process.env.BACKUP_GIST_TOKEN,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                description: 'E.D.I.T.H Backup — ' + timestamp,
+                files: {
+                  'edith_backup.json': { content }
+                }
+              })
+            });
+
+            if (res.ok) {
+              console.log('Backup successful at', timestamp);
+            } else {
+              console.error('Backup failed:', res.status, await res.text());
+              process.exit(1);
+            }
+          })();
+          "

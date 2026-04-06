@@ -65,9 +65,9 @@ export const calculateStats = (
   });
 
   const overallProgress = totalAll > 0 ? (completedAll / totalAll) * 100 : 0;
-  // Pace is always lectures-only
+  // Pace is always lectures-only, always against lectures deadline
   const lecturesLeft = totalLectures - completedLectures;
-  const requiredPerDay = daysRemaining > 0 ? (lecturesLeft / daysRemaining).toFixed(1) : '0';
+  const requiredPerDay = daysToLectures > 0 ? (lecturesLeft / daysToLectures).toFixed(1) : '0';
 
   // Projected completion using actual daily lecture pace
   const startDate = data.studyStartDate || '2025-11-01';

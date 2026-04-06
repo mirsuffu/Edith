@@ -11,7 +11,7 @@ import { toast, TOAST_MESSAGES } from '@/utils/toast';
 import { useNotifications } from '@/hooks/useNotifications';
 import { schedulePersistentNotification, cancelNotification } from '@/services/notificationService';
 import type { Reminder } from '@/types';
-import { Bell, Trash2, Plus, Clock, Repeat } from 'lucide-react';
+import { Bell, Trash2, Plus, Clock, Repeat, CheckCircle2, Circle } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 
 export const RemindersTab: React.FC = () => {
@@ -19,6 +19,7 @@ export const RemindersTab: React.FC = () => {
   const addReminder = useAppStore((s) => s.addReminder);
   const updateReminder = useAppStore((s) => s.updateReminder);
   const deleteReminder = useAppStore((s) => s.deleteReminder);
+  const toggleReminderComplete = useAppStore((s) => s.toggleReminderComplete);
   const { isSupported, permission, requestPermission } = useNotifications();
 
   const [showAdd, setShowAdd] = useState(false);
@@ -30,8 +31,11 @@ export const RemindersTab: React.FC = () => {
   const [repeat, setRepeat] = useState<'none' | 'daily' | 'weekly'>('none');
   const [notify, setNotify] = useState(true);
 
-  // Sort: unfired first, then by scheduledAt
+  // Sort: incomplete first, then completed; within each group sort by scheduledAt
   const sorted = [...reminders].sort((a, b) => {
+    const aComplete = a.completed ? 1 : 0;
+    const bComplete = b.completed ? 1 : 0;
+    if (aComplete !== bComplete) return aComplete - bComplete;
     if (a.fired !== b.fired) return a.fired ? 1 : -1;
     return a.scheduledAt.localeCompare(b.scheduledAt);
   });
@@ -48,6 +52,7 @@ export const RemindersTab: React.FC = () => {
       repeat,
       notifyEnabled: notify,
       fired: false,
+      completed: false,
     };
 
     addReminder(reminder);
@@ -97,17 +102,32 @@ export const RemindersTab: React.FC = () => {
 
       <div className="space-y-2">
         {sorted.map((r) => (
-          <div key={r.id} className={`p-4 bg-surface border border-border rounded-xl card-shadow flex items-start gap-3 ${r.fired ? 'opacity-50' : ''}`}>
-            <Bell size={16} className={r.notifyEnabled ? 'text-warning mt-0.5' : 'text-text-3 mt-0.5'} />
+          <div key={r.id} className={`p-4 bg-surface border border-border rounded-xl card-shadow flex items-start gap-3 transition-all ${r.completed ? 'opacity-50' : ''} ${r.fired && !r.completed ? 'opacity-70' : ''}`}>
+            {/* Completion toggle */}
+            <button
+              onClick={() => toggleReminderComplete(r.id)}
+              className={`mt-0.5 shrink-0 transition-colors ${r.completed ? 'text-success' : 'text-text-3 hover:text-accent'}`}
+              aria-label={r.completed ? 'Mark as incomplete' : 'Mark as complete'}
+              title={r.completed ? 'Mark as incomplete' : 'Mark as complete'}
+            >
+              {r.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+            </button>
+            
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-text-1">{r.title}</div>
-              {r.body && <div className="text-xs text-text-2 mt-0.5">{r.body}</div>}
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className={`text-sm font-semibold text-text-1 ${r.completed ? 'line-through text-text-3' : ''}`}>{r.title}</div>
+              {r.body && <div className={`text-xs text-text-2 mt-0.5 ${r.completed ? 'line-through' : ''}`}>{r.body}</div>}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span className="text-[10px] font-mono text-text-3 flex items-center gap-1">
                   <Clock size={10} />{new Date(r.scheduledAt).toLocaleString()}
                 </span>
                 {r.repeat !== 'none' && (
                   <Badge variant="default"><Repeat size={8} className="mr-1" />{r.repeat}</Badge>
+                )}
+                {r.completed && (
+                  <Badge variant="default">✓ Completed</Badge>
+                )}
+                {r.notifyEnabled && !r.completed && (
+                  <Bell size={10} className="text-warning" />
                 )}
               </div>
             </div>

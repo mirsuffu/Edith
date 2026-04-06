@@ -61,8 +61,8 @@ function scheduleNotification(notif) {
     const timerId = setTimeout(async () => {
       await self.registration.showNotification(notif.title, {
         body: notif.body || '',
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-192.png',
+        icon: '/Edith/icons/icon-192.png',
+        badge: '/Edith/icons/icon-192.png',
         tag: notif.id,
         data: { url: '/' },
       });
@@ -118,8 +118,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: '/Edith/icons/icon-192.png',
+      badge: '/Edith/icons/icon-192.png',
       data: { url: payload.url || '/' },
     })
   );

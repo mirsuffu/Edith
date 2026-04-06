@@ -44,7 +44,7 @@ const defaultAppData: AppData = {
   fullScreenEnabled: false,
   pacingAlertThreshold: DEFAULT_PACE_ALERT_THRESHOLD,
   lastWelcomeShownDate: null,
-  updatedAt: new Date().toISOString(),
+  updatedAt: '1970-01-01T00:00:00.000Z',
 };
 
 /* ===== Store interface ===== */
@@ -123,6 +123,7 @@ interface AppStore {
   addReminder: (reminder: Reminder) => void;
   updateReminder: (id: string, updates: Partial<Reminder>) => void;
   deleteReminder: (id: string) => void;
+  toggleReminderComplete: (id: string) => void;
 
   // Edith AI
   setEdithMemory: (mem: string) => void;
@@ -138,7 +139,7 @@ interface AppStore {
   removeToast: (id: string) => void;
 
   // Data management
-  clearAllData: () => void;
+  clearAllData: (deleteFromCloud?: boolean) => void;
   importData: (imported: AppData) => void;
   setLastWelcomeShownDate: (date: string) => void;
 
@@ -244,7 +245,8 @@ const migrateData = (raw: Record<string, unknown>): AppData => {
     fullScreenEnabled: r.fullScreenEnabled ?? false,
     pacingAlertThreshold: r.pacingAlertThreshold ?? DEFAULT_PACE_ALERT_THRESHOLD,
     lastWelcomeShownDate: r.lastWelcomeShownDate || null,
-    updatedAt: r.updatedAt || new Date().toISOString(),
+    updatedAt: r.updatedAt || '1970-01-01T00:00:00.000Z',
+    userName: r.userName || undefined,
   };
 };
 
@@ -366,6 +368,9 @@ export const useAppStore = create<AppStore>()(
 
       setUserName: (name) => set((s) => {
         if (s.userProfile) s.userProfile.name = name;
+        s.data.userName = name;
+        s.data.updatedAt = new Date().toISOString();
+        saveToLocalStorage(s.data);
       }),
 
       // === Syllabus ===
@@ -511,6 +516,13 @@ export const useAppStore = create<AppStore>()(
         saveToLocalStorage(s.data);
       }),
 
+      toggleReminderComplete: (id) => set((s) => {
+        const r = s.data.progress.reminders.find((r) => r.id === id);
+        if (r) r.completed = !r.completed;
+        s.data.updatedAt = new Date().toISOString();
+        saveToLocalStorage(s.data);
+      }),
+
       // === Edith AI ===
       setEdithMemory: (mem) => set((s) => {
         s.data.edithMemory = mem;
@@ -569,13 +581,15 @@ export const useAppStore = create<AppStore>()(
       }),
 
       // === Data management ===
-      clearAllData: () => set((s) => {
+      clearAllData: (deleteFromCloud = false) => set((s) => {
         s.data = {
           ...defaultAppData,
           deadlines: s.data.deadlines,
           themeMode: s.data.themeMode,
           lastExported: null,
           studyStartDate: toLocalDateStr(),
+          // If NOT deleting from cloud, keep epoch timestamp so cloud data won't be overwritten
+          updatedAt: deleteFromCloud ? new Date().toISOString() : '1970-01-01T00:00:00.000Z',
         };
         saveToLocalStorage(s.data);
       }),

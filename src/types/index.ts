@@ -119,6 +119,7 @@ export interface Reminder {
   repeat: 'none' | 'daily' | 'weekly';
   notifyEnabled: boolean;
   fired: boolean;
+  completed?: boolean;
 }
 
 /* ===== Edith AI Chat ===== */
@@ -190,4 +191,5 @@ export interface AppData {
   pacingAlertThreshold: number;
   lastWelcomeShownDate: string | null;
   updatedAt: string;
+  userName?: string;
 }

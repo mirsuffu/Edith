@@ -89,7 +89,8 @@ export const SettingsTab: React.FC = () => {
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'edith_backup.json';
+    const timestamp = new Date().toISOString().slice(0, 10);
+    a.href = url; a.download = `edith_backup_${timestamp}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   };
@@ -115,9 +116,9 @@ export const SettingsTab: React.FC = () => {
     e.target.value = '';
   };
 
-  const handleClear = () => {
-    clearAllData();
-    toast.info(TOAST_MESSAGES.clearConfirm);
+  const handleClear = (deleteFromCloud = false) => {
+    clearAllData(deleteFromCloud);
+    toast.info(deleteFromCloud ? 'All data cleared (local + cloud).' : 'Local data cleared. Cloud data preserved.');
     setShowClearConfirm(false);
   };
 
@@ -283,10 +284,11 @@ export const SettingsTab: React.FC = () => {
         </div>
         {showClearConfirm && (
           <div className="mt-3 p-3 border border-danger/30 rounded-xl bg-danger/5 space-y-2">
-            <p className="text-xs text-danger font-medium">This will wipe all data. Back up first!</p>
-            <div className="flex gap-2">
+            <p className="text-xs text-danger font-medium">This will wipe all local data. Back up first!</p>
+            <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={handleExport}><Download size={14} /> Backup</Button>
-              <Button size="sm" variant="danger" onClick={handleClear}><Trash2 size={14} /> Confirm</Button>
+              <Button size="sm" variant="danger" onClick={() => handleClear(false)}><Trash2 size={14} /> Clear Local</Button>
+              <Button size="sm" variant="danger" onClick={() => handleClear(true)}><Trash2 size={14} /> Delete Everywhere</Button>
               <Button size="sm" variant="ghost" onClick={() => setShowClearConfirm(false)}>Cancel</Button>
             </div>
           </div>

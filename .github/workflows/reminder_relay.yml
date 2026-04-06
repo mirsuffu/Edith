@@ -1,0 +1,95 @@
+name: Reminder Notification Relay
+
+# Runs every 15 minutes — checks Firestore for due notifications and sends via FCM
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install firebase-admin
+        run: npm install firebase-admin@13
+
+      - name: Process Due Notifications
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          node -e "
+          const { initializeApp, cert } = require('firebase-admin/app');
+          const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+          const { getMessaging } = require('firebase-admin/messaging');
+
+          (async () => {
+            try {
+              const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+              initializeApp({ credential: cert(sa) });
+              const db = getFirestore();
+              const messaging = getMessaging();
+              const now = Date.now();
+
+              // Query pending notifications
+              const snapshot = await db.collection('scheduled_notifications')
+                .where('status', '==', 'pending')
+                .get();
+
+              if (snapshot.empty) {
+                console.log('No pending notifications.');
+                return;
+              }
+
+              // Filter by time in memory
+              const due = snapshot.docs.filter(doc => doc.data().targetTimeMs <= now);
+
+              if (due.length === 0) {
+                console.log('Notifications exist but none are due yet.');
+                return;
+              }
+
+              let sentCount = 0;
+              const batch = db.batch();
+
+              for (const doc of due) {
+                const data = doc.data();
+                const payload = {
+                  token: data.token,
+                  data: {
+                    title: data.title || 'E.D.I.T.H',
+                    body: data.body || '',
+                    url: '/'
+                  }
+                };
+
+                try {
+                  await messaging.send(payload);
+                  batch.update(doc.ref, {
+                    status: 'sent',
+                    sentAt: FieldValue.serverTimestamp()
+                  });
+                  sentCount++;
+                } catch (err) {
+                  console.error('Failed to send for ' + doc.id + ':', err.message);
+                  if (err.code === 'messaging/invalid-registration-token' ||
+                      err.code === 'messaging/registration-token-not-registered') {
+                    batch.update(doc.ref, { status: 'failed_invalid_token' });
+                  } else {
+                    batch.update(doc.ref, { status: 'error', lastError: err.message });
+                  }
+                }
+              }
+
+              await batch.commit();
+              console.log('Sent ' + sentCount + ' notifications. Done.');
+            } catch (err) {
+              console.error('Relay error:', err);
+              process.exit(1);
+            }
+          })();
+          "

@@ -5,7 +5,7 @@ import { calculateStats } from '@/utils/stats';
 import { SUBJECT_KEYS } from '@/constants';
 import { AI_TOOLS } from './aiTools';
 import { searchWeb } from './tavilyService';
-import * as Sentry from '@sentry/react';
+
 
 export interface AIResponse {
   content: string;
@@ -124,10 +124,12 @@ export const sendChatMessage = async (
     try {
       const targetUrl = `${AI_CONFIG.baseUrl}/chat/completions`;
 
+      // Direct API call — no CORS proxy needed for sole-user app
+      // Dev: use Vite proxy to avoid CORS. Prod: direct call.
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const fetchUrl = isLocal
         ? targetUrl.replace('https://integrate.api.nvidia.com', '/api/nvidia')
-        : `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        : targetUrl;
 
       // 8s Circuit-breaker timeout
       const timeoutPromise = new Promise((_, reject) => {
@@ -239,12 +241,8 @@ export const sendChatMessage = async (
     } catch (e: any) {
       if (e.name === 'AbortError') throw e;
 
-      // Log error to Sentry with user and session context
-      Sentry.withScope((scope) => {
-        scope.setTag('error_type', e instanceof AIError ? e.type : 'unknown');
-        scope.setExtra('attempt', attempt);
-        Sentry.captureException(e);
-      });
+      // Log error for debugging
+      console.error(`AI request attempt ${attempt} failed:`, e);
       
       // Classify error type
       if (e instanceof AIError) {

@@ -379,7 +379,43 @@ export const EdithTab: React.FC = React.memo(() => {
 
             {loading && (
               <div className="flex gap-2.5 justify-start">
-                <img src={import.meta.env.BASE_URL + 'logo.png'} alt="Edith" className="w-7 h-7 rounded-full shrink-0 mt-1" />
+                {/* Dual-arc thinking animation replaces logo during loading */}
+                <div className="w-7 h-7 shrink-0 mt-1 flex items-center justify-center" style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    border: '2.5px solid transparent',
+                    borderTopColor: 'var(--accent, #3b82f6)',
+                    borderBottomColor: 'var(--accent, #3b82f6)',
+                    animation: 'edith-arc-spin 1.5s cubic-bezier(0.68, -0.15, 0.265, 1.15) infinite',
+                    filter: 'drop-shadow(0 0 4px var(--accent, #3b82f6))',
+                  }} />
+                  <div style={{
+                    position: 'absolute',
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    border: '2px solid transparent',
+                    borderLeftColor: 'var(--accent, #3b82f6)',
+                    borderRightColor: 'var(--accent, #3b82f6)',
+                    animation: 'edith-arc-spin-rev 1s cubic-bezier(0.68, -0.15, 0.265, 1.15) infinite',
+                    opacity: 0.8,
+                  }} />
+                  <style>{`
+                    @keyframes edith-arc-spin {
+                      0% { transform: rotate(0deg) scale(1); }
+                      50% { transform: rotate(180deg) scale(1.05); }
+                      100% { transform: rotate(360deg) scale(1); }
+                    }
+                    @keyframes edith-arc-spin-rev {
+                      0% { transform: rotate(0deg) scale(1); }
+                      50% { transform: rotate(-180deg) scale(0.95); }
+                      100% { transform: rotate(-360deg) scale(1); }
+                    }
+                  `}</style>
+                </div>
                 <div className="bg-surface-2 border border-border rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-3">
                   <Brain size={14} className="text-accent animate-pulse" />
                   <div className="text-xs font-semibold text-text-2 tracking-wide">
@@ -505,10 +541,10 @@ export const EdithTab: React.FC = React.memo(() => {
                   onClick={() => loading ? handleCancel() : handleSend()}
                   disabled={(!loading && !input.trim())}
                   variant={loading ? 'danger' : 'primary'}
-                  className="w-9 h-9 p-0 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95"
+                  className="w-10 h-10 p-0 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95"
                   aria-label={loading ? "Stop generation" : "Send message"}
                 >
-                  {loading ? <Square size={14} fill="currentColor" /> : <Send size={14} />}
+                  {loading ? <Square size={16} fill="currentColor" /> : <Send size={16} className="text-white" />}
                 </Button>
               </div>
             </div>

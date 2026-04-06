@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { playPop } from '@/hooks/useSounds';
+import { playClick } from '@/hooks/useSounds';
 
 interface ModalProps {
   open: boolean;
@@ -17,7 +17,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   // Play pop sound when modal opens
   useEffect(() => {
-    if (open) playPop();
+    if (open) playClick();
   }, [open]);
 
   // Handle Escape key
