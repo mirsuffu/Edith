@@ -119,7 +119,10 @@ export const sendChatMessage = async (
 
       return await new Promise<AIResponse>((resolve, reject) => {
         const responseRef = doc(db, 'ai_responses', requestId);
-        let timeout = setTimeout(() => { unsub(); reject(new AIError('timeout', 'AI Relay timed out.')); }, 60000);
+        let timeout = setTimeout(() => {
+          unsub();
+          reject(new AIError('timeout', 'AI Relay timed out. GitHub Actions cold-start can take 40-60s...'));
+        }, 90000);
         const unsub = onSnapshot(responseRef, (snap) => {
           if (snap.exists()) {
             const resData = snap.data();
