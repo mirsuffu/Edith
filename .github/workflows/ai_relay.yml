@@ -23,7 +23,7 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           # The client sends the full request payload in client_payload
-          PAYLOAD: ${{ JSON.stringify(github.event.client_payload) }}
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
         run: |
           node -e "
           const { initializeApp, cert } = require('firebase-admin/app');

@@ -56,6 +56,7 @@ const App: React.FC = () => {
   const setShowWelcomeModal = useAppStore((s) => s.setShowWelcomeModal);
   const setLastWelcomeShownDate = useAppStore((s) => s.setLastWelcomeShownDate);
   const setSyncStatus = useAppStore((s) => s.setSyncStatus);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
   const user = useAppStore((s) => s.user);
   const prevThemeRef = useRef<string | null>(null);
 
@@ -132,6 +133,13 @@ const App: React.FC = () => {
 
   // Service worker
   useEffect(() => { registerServiceWorker(); }, []);
+
+  // Force landing on Planner tab on first load
+  useEffect(() => {
+    if (isAuthenticated || !fbConfigured) {
+      setActiveTab('planner');
+    }
+  }, [isAuthenticated, fbConfigured, setActiveTab]);
 
   // Auto-click for fullscreen activation
   useEffect(() => {
