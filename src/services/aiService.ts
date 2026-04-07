@@ -106,7 +106,10 @@ export const sendChatMessage = async (
       const githubToken = data.githubToken;
       if (!githubToken) throw new AIError('config', 'GitHub Token missing in Settings.');
 
-      const dispatchRes = await fetch('https://api.github.com/repos/mirsuffu/Edith/dispatches', {
+      // CORS-Proxy for GitHub Dispatches (Browser security bypass)
+      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://api.github.com/repos/mirsuffu/Edith/dispatches');
+      
+      const dispatchRes = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
           'Authorization': `token ${githubToken}`,
@@ -128,7 +131,10 @@ export const sendChatMessage = async (
         signal,
       });
 
-      if (!dispatchRes.ok) throw new AIError('api', `Relay trigger failed: ${dispatchRes.status}`);
+      if (!dispatchRes.ok) {
+        const errBody = await dispatchRes.text().catch(() => 'No error body');
+        throw new AIError('api', `Relay trigger failed (${dispatchRes.status}): ${errBody || 'Check your GitHub Token Scopes.'}`);
+      }
 
       return await new Promise<AIResponse>((resolve, reject) => {
         const responseRef = doc(db, 'ai_responses', requestId);
