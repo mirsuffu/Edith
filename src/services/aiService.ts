@@ -67,20 +67,32 @@ export const sendChatMessage = async (
 
       if (isLocal) {
         const fetchUrl = `${AI_CONFIG.baseUrl}/chat/completions`.replace('https://integrate.api.nvidia.com', '/api/nvidia');
+        const isSuper = modelId === 'super';
+        const apiKey = AI_CONFIG.keys[modelId as keyof typeof AI_CONFIG.keys];
+        
+        const body: any = {
+          model: AI_CONFIG.modelIds[modelId as keyof typeof AI_CONFIG.modelIds] || AI_CONFIG.modelIds.nano,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+          temperature: isSuper ? 1.0 : 0.2, 
+          top_p: isSuper ? 1.0 : 0.7,
+          max_tokens: 4096,
+          stream: false,
+        };
+
+        if (isSuper) {
+          body.extra_body = {
+            chat_template_kwargs: { enable_thinking: true },
+            reasoning_budget: 16384
+          };
+        }
+
         const response = await fetch(fetchUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
+            'Authorization': `Bearer ${apiKey}`,
           },
-          body: JSON.stringify({
-            model: AI_CONFIG.modelIds[modelId as keyof typeof AI_CONFIG.modelIds] || AI_CONFIG.modelIds.nano,
-            messages: [{ role: 'system', content: systemPrompt }, ...messages],
-            temperature: 0.2,
-            top_p: 0.7,
-            max_tokens: 1024,
-            stream: false,
-          }),
+          body: JSON.stringify(body),
           signal,
         });
 
@@ -106,9 +118,9 @@ export const sendChatMessage = async (
             requestId,
             model: AI_CONFIG.modelIds[modelId as keyof typeof AI_CONFIG.modelIds] || AI_CONFIG.modelIds.nano,
             messages: [{ role: 'system', content: systemPrompt }, ...messages],
-            temperature: 0.2,
-            top_p: 0.7,
-            max_tokens: 1024,
+            temperature: modelId === 'super' ? 1.0 : 0.2,
+            top_p: modelId === 'super' ? 1.0 : 0.7,
+            max_tokens: 4096,
             webSearchEnabled
           }
         }),
