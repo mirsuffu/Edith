@@ -6,7 +6,6 @@ import { SUBJECT_KEYS } from '@/constants';
 import { db } from '@/config/firebase';
 import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { GITHUB_CONFIG } from '@/config/github';
 
 export interface AIResponse {
   content: string;
@@ -135,11 +134,11 @@ export const sendChatMessage = async (
       }
 
       // PRODUCTION: GitHub Actions Relay
-      const githubToken = GITHUB_CONFIG.token;
-      if (!githubToken) throw new AIError('config', 'GitHub Token missing in Configuration.');
+      const githubToken = data.githubToken;
+      if (!githubToken) throw new AIError('config', 'GitHub Token missing in Settings.');
 
       // Native environments (and TWA) do not have strict CORS issues with API calls.
-      const githubApiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.repo}/dispatches`;
+      const githubApiUrl = 'https://api.github.com/repos/mirsuffu/Edith/dispatches';
       let dispatchUrl = githubApiUrl;
 
       if (!Capacitor.isNativePlatform()) {
