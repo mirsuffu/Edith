@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "199651360117",
+    "project_id": "edith-4f693",
+    "storage_bucket": "edith-4f693.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:199651360117:android:cfe8c88a9c69bdde08673c",
+        "android_client_info": {
+          "package_name": "com.edith.tracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCr6g_OhrZAxZSJK6A0iFCZ7tADSV3eXas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

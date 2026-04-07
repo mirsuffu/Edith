@@ -3,6 +3,8 @@ import { toast } from '@/utils/toast';
 import { getMessagingInstance, db, VAPID_KEY } from '@/config/firebase';
 import { getToken } from 'firebase/messaging';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 export type NotificationFailureType = 
   | 'PERMISSION_DENIED'
@@ -17,12 +19,34 @@ export interface NotificationFailureReport {
   timestamp: string;
 }
 
-export const isNotificationSupported = (): boolean =>
-  'serviceWorker' in navigator && 'Notification' in window && 'PushManager' in window;
+export const isNotificationSupported = (): boolean => {
+  if (Capacitor.isNativePlatform()) return true;
+  return 'serviceWorker' in navigator && 'Notification' in window && 'PushManager' in window;
+};
 
 export const requestNotificationPermission = async (): Promise<NotificationPermission> => {
   if (!isNotificationSupported()) return 'default';
   
+  if (Capacitor.isNativePlatform()) {
+    let permStatus = await PushNotifications.checkPermissions();
+    if (permStatus.receive === 'prompt') {
+      permStatus = await PushNotifications.requestPermissions();
+    }
+    if (permStatus.receive !== 'granted') {
+      toast.error('Native Push permissions denied.');
+      return 'denied';
+    }
+    try {
+      await PushNotifications.register();
+      toast.success('Native Notifications fully enabled!');
+      return 'granted';
+    } catch (e: any) {
+      console.error('Failed to register native push', e);
+      toast.error('Failed to connect to native messaging service.');
+      return 'denied';
+    }
+  }
+
   const permission = await Notification.requestPermission();
   
   if (permission === 'granted') {
@@ -83,6 +107,24 @@ const processRetryQueue = async () => {
 export const registerServiceWorker = async (): Promise<void> => {
   if (!isNotificationSupported()) return;
 
+  if (Capacitor.isNativePlatform()) {
+    console.log('Native environment detected. Initializing Native Push Listeners and skipping SW.');
+    PushNotifications.addListener('registration', (token) => {
+      console.log('Native FCM Token generated:', token.value.slice(0, 10) + '...');
+      localStorage.setItem('fcm_token', token.value);
+    });
+    PushNotifications.addListener('registrationError', (error) => {
+      console.error('Error on native FCM registration:', JSON.stringify(error));
+    });
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      console.log('Native push received in foreground:', notification);
+    });
+    PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+      console.log('Native push action performed:', notification.actionId);
+    });
+    return;
+  }
+
   try {
     // Determine the path to sw based on base path (usually root for Vercel)
     const base = import.meta.env.BASE_URL || '/';
@@ -130,7 +172,12 @@ export const schedulePersistentNotification = async (
 
   const token = localStorage.getItem('fcm_token');
   if (!token) {
-    toast.error('Device ID (Token) missing. Try toggling notifications in Settings.');
+    if (Capacitor.isNativePlatform()) {
+       toast.error('Device ID (Native Token) missing. Automatically retrying on next launch.');
+       await PushNotifications.register();
+    } else {
+       toast.error('Device ID (Token) missing. Try toggling notifications in Settings.');
+    }
     return;
   }
 
@@ -171,12 +218,14 @@ export const cancelNotification = async (id: string): Promise<void> => {
   if (!isNotificationSupported()) return;
 
   try {
-    // 1. Cancel local SW timer
-    const reg = await navigator.serviceWorker.ready;
-    reg.active?.postMessage({
-      type: 'CANCEL_NOTIFICATION',
-      payload: { id }
-    });
+    // 1. Cancel local SW timer or native scheduled
+    if (!Capacitor.isNativePlatform()) {
+      const reg = await navigator.serviceWorker.ready;
+      reg.active?.postMessage({
+        type: 'CANCEL_NOTIFICATION',
+        payload: { id }
+      });
+    }
 
     // 2. Delete from Firestore
     const notifRef = doc(db, 'scheduled_notifications', id);

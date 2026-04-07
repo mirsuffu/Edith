@@ -1,5 +1,8 @@
-import React, { useRef, useState } from 'react';
+  import React, { useRef, useState } from 'react';
 import { useAppStore } from '@/store/appStore';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { useEditorMode } from '@/hooks/useEditorMode';
 import { EditorModeModal } from '@/components/modals/EditorModeModal';
 import { Button } from '@/components/ui/Button';
@@ -84,16 +87,41 @@ export const SettingsTab: React.FC = () => {
     if (result.success) toast.info(TOAST_MESSAGES.passwordReset);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const exportData = { ...data, lastExported: new Date().toISOString() };
     setLastExported(exportData.lastExported);
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const jsonStr = JSON.stringify(exportData, null, 2);
     const timestamp = new Date().toISOString().slice(0, 10);
-    a.href = url; a.download = `edith_backup_${timestamp}.json`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+    const fileName = `edith_backup_${timestamp}.json`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: jsonStr,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        });
+        
+        await Share.share({
+          title: 'Export E.D.I.T.H Backup',
+          text: 'Save your EDITH backup file.',
+          url: result.uri,
+          dialogTitle: 'Save Backup File',
+        });
+        toast.info('Export complete. Save the file to your desired folder.');
+      } catch (e: any) {
+        toast.error('Failed to export natively: ' + e.message);
+      }
+    } else {
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.info('Backup exported.');
+    }
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
