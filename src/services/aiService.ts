@@ -134,8 +134,8 @@ export const sendChatMessage = async (
         const responseRef = doc(db, 'ai_responses', requestId);
         let timeout = setTimeout(() => {
           unsub();
-          reject(new AIError('timeout', 'AI Relay timed out. GitHub Actions cold-start can take 40-60s...'));
-        }, 90000);
+          reject(new AIError('timeout', 'AI Relay timed out. GitHub Actions core-start + Thinking can take up to 2 mins. Please wait a moment and refresh.'));
+        }, 150000);
         const unsub = onSnapshot(responseRef, (snap) => {
           if (snap.exists()) {
             const resData = snap.data();
