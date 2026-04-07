@@ -136,27 +136,32 @@ export const sendChatMessage = async (
         throw new AIError('api', `Relay trigger failed (${dispatchRes.status}): ${errBody || 'Check your GitHub Token Scopes.'}`);
       }
 
-      return await new Promise<AIResponse>((resolve, reject) => {
+      return await new Promise<AIResponse>(async (resolve, reject) => {
         const responseRef = doc(db, 'ai_responses', requestId);
         let timeout = setTimeout(() => {
           unsub();
           reject(new AIError('timeout', 'AI Relay timed out. GitHub Actions core-start + Thinking can take up to 2 mins. Please wait a moment and refresh.'));
         }, 150000);
-        const unsub = onSnapshot(responseRef, (snap) => {
-          if (snap.exists()) {
-            const resData = snap.data();
-            if (resData.status === 'completed') {
-              clearTimeout(timeout); unsub(); deleteDoc(responseRef).catch(() => {});
-              resolve({ content: resData.content, reasoning: resData.reasoning, toolCalls: resData.toolCalls });
-            } else if (resData.status === 'error') {
-              clearTimeout(timeout); unsub(); deleteDoc(responseRef).catch(() => {});
-              reject(new AIError('api', `Relay Error: ${resData.error || 'Unknown relay failure.'}`));
-            }
-          }
-        }, (err) => {
-          clearTimeout(timeout); unsub(); reject(new AIError('network', `Firestore polling failed: ${err.message}`));
-        });
-      });
+              // Add a slight delay before polling to allow Firestore to sync across regions
+              await new Promise(r => setTimeout(r, 2000));
+
+              const unsub = onSnapshot(responseRef, (snap) => {
+                if (snap.exists()) {
+                  const resData = snap.data();
+                  if (resData.status === 'completed') {
+                    clearTimeout(timeout); unsub(); deleteDoc(responseRef).catch(() => {});
+                    resolve({ content: resData.content, reasoning: resData.reasoning, toolCalls: resData.toolCalls });
+                  } else if (resData.status === 'error') {
+                    clearTimeout(timeout); unsub(); deleteDoc(responseRef).catch(() => {});
+                    reject(new AIError('api', `Relay Error: ${resData.error || 'Unknown relay failure.'}`));
+                  }
+                }
+              }, (err) => {
+                clearTimeout(timeout); unsub(); 
+                console.error('Firestore polling error:', err);
+                reject(new AIError('network', `Firestore connection failed: ${err.message} (Check your security rules)`));
+              });
+            });
     } catch (e: any) {
       if (e.name === 'AbortError') throw e;
       const errorMsg = e.message || 'AI Request failed.';
