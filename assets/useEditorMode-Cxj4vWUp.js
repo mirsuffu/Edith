@@ -1,0 +1,1 @@
+import{r as e}from"./index-DZnhkd7o.js";const s="edith_editor_mode",c=()=>{try{return localStorage.getItem(s)==="true"}catch{return!1}},r=t=>{try{localStorage.setItem(s,String(t))}catch{}},i=()=>{const[t,o]=e.useState(c),a=e.useCallback(()=>{o(!0),r(!0)},[]),d=e.useCallback(()=>{o(!1),r(!1)},[]);return{isEditorMode:t,enableEditorMode:a,disableEditorMode:d}};export{i as u};
