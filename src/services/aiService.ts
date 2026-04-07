@@ -137,11 +137,15 @@ export const sendChatMessage = async (
       const githubToken = data.githubToken;
       if (!githubToken) throw new AIError('config', 'GitHub Token missing in Settings.');
 
-      // Native environments do not have strict CORS issues with API calls.
+      // Native environments (and TWA) do not have strict CORS issues with API calls.
       const githubApiUrl = 'https://api.github.com/repos/mirsuffu/Edith/dispatches';
-      const dispatchUrl = Capacitor.isNativePlatform() 
-        ? githubApiUrl 
-        : 'https://corsproxy.io/?' + encodeURIComponent(githubApiUrl);
+      let dispatchUrl = githubApiUrl;
+
+      if (!Capacitor.isNativePlatform()) {
+        // PWA/Browser path: Use a more reliable relay than corsproxy.io if possible
+        // For now, we will stick to the relay but ensure it's properly encoded
+        dispatchUrl = 'https://corsproxy.io/?' + encodeURIComponent(githubApiUrl);
+      }
       
       const dispatchRes = await fetch(dispatchUrl, {
         method: 'POST',
