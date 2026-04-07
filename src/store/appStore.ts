@@ -602,7 +602,9 @@ export const useAppStore = create<AppStore>()(
       }),
 
       importData: (imported) => set((s) => {
-        s.data = migrateData(imported as unknown as Record<string, unknown>);
+        const migrated = migrateData(imported as unknown as Record<string, unknown>);
+        migrated.updatedAt = new Date().toISOString(); 
+        s.data = migrated;
         saveToLocalStorage(s.data);
       }),
 
