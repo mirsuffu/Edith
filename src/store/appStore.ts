@@ -233,7 +233,7 @@ const migrateData = (raw: Record<string, unknown>): AppData => {
       history: Array.isArray(progress.history) ? progress.history.slice(-HISTORY_MAX_ENTRIES) : [],
       activityLogs: Array.isArray(progress.activityLogs) ? progress.activityLogs.slice(0, ACTIVITY_LOG_MAX) : [],
       syllabus: Array.isArray(progress.syllabus) ? progress.syllabus : [],
-      planner: Array.isArray(progress.planner) ? progress.planner : [],
+      planner: Array.isArray(progress.planner) ? progress.planner.map((p: any) => ({ ...p, id: p.id || generateId() })) : [],
       schedule: Array.isArray(progress.schedule) ? progress.schedule : [],
       reminders: Array.isArray(progress.reminders) ? progress.reminders : [],
     },

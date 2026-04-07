@@ -75,19 +75,22 @@ const DayCard = memo<{
 
   const addPlan = useCallback(() => {
     if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
+    if (past) { toast.error('Cannot add plans to past dates.'); return; }
     updatePlannerEntry({
       id: generateId(),
       date,
       subject: SUBJECT_KEYS[0],
       note: '',
       ticked: false,
-      notifyEnabled: false,
+      notifyEnabled: true,
     });
-  }, [date, isEditorMode, updatePlannerEntry]);
+  }, [date, isEditorMode, past, updatePlannerEntry]);
 
   const handleDelete = useCallback((id: string) => {
     if (!isEditorMode) return;
-    deletePlannerEntry(id);
+    if (window.confirm('Are you sure you want to delete this plan?')) {
+      deletePlannerEntry(id);
+    }
   }, [isEditorMode, deletePlannerEntry]);
 
   // Tick is unlocked
@@ -137,7 +140,7 @@ const DayCard = memo<{
             No plans for this day.
           </div>
         )}
-        {entries.length === 0 && isEditorMode && (
+        {entries.length === 0 && isEditorMode && !past && (
           <button
             onClick={addPlan}
             className="w-full py-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-text-3 hover:text-accent border border-dashed border-border hover:border-accent/30 rounded-lg transition-colors"
@@ -151,81 +154,84 @@ const DayCard = memo<{
           const subjColor = isOther ? '#64748b' : config[entry.subject as SubjectKey]?.color || '#64748b';
           
           return (
-            <div key={entry.id} className="flex items-center gap-1.5">
+            <div key={entry.id} className="flex items-center gap-1.5 py-1">
               {/* Delete button (Editor Mode) */}
               {isEditorMode && (
                 <button
                   onClick={() => handleDelete(entry.id)}
-                  className="w-5 h-5 flex items-center justify-center text-danger/50 hover:text-danger hover:bg-danger/10 rounded transition-colors shrink-0"
+                  className="w-6 h-6 flex items-center justify-center text-danger/60 hover:text-danger hover:bg-danger/10 rounded transition-colors shrink-0"
+                  aria-label="Delete plan"
+                  title="Delete plan"
                 >
                   <Trash2 size={12} />
                 </button>
               )}
               
-              {/* Subject dot */}
-              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: subjColor }} />
-              
-              {/* Subject Dropdown & Plan */}
-              <div className="flex-1 flex flex-col min-w-0 pt-0.5">
-                <div className="relative w-fit">
-                  <select
-                    value={entry.subject}
-                    onChange={(e) => handleSubjectChange(entry.id, e.target.value as PlannerSubject)}
-                    disabled={!isEditorMode}
-                    className="block appearance-none bg-transparent text-[9px] font-semibold leading-none mb-0.5 border-none focus:outline-none focus:ring-0 p-0 pr-3 cursor-pointer"
-                    style={{ color: subjColor }}
-                    aria-label="Select subject"
-                  >
-                    {SUBJECT_KEYS.map(k => (
-                      <option key={k} value={k} className="text-text-1 bg-surface">{config[k]?.name}</option>
-                    ))}
-                    <option value="other" className="text-text-1 bg-surface">Other</option>
-                  </select>
-                  {/* Custom dropdown arrow to hint that it's a select */}
-                  {isEditorMode && (
-                    <div className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2" style={{ color: subjColor, opacity: 0.7 }}>
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                    </div>
-                  )}
-                </div>
+              {/* Subject Dropdown */}
+              <div className="relative shrink-0 flex items-center">
+                <select
+                  value={entry.subject}
+                  onChange={(e) => handleSubjectChange(entry.id, e.target.value as PlannerSubject)}
+                  disabled={!isEditorMode || past}
+                  className="appearance-none bg-transparent text-[10px] font-bold focus:outline-none focus:ring-0 pl-1 pr-3.5 py-1 cursor-pointer text-left w-[85px] truncate uppercase tracking-wide"
+                  style={{ color: subjColor }}
+                  aria-label="Select subject"
+                >
+                  {SUBJECT_KEYS.map(k => (
+                    <option key={k} value={k} className="text-text-1 bg-surface normal-case">{config[k]?.name}</option>
+                  ))}
+                  <option value="other" className="text-text-1 bg-surface normal-case">Other</option>
+                </select>
+                {/* Custom dropdown arrow */}
+                {!past && isEditorMode && (
+                  <div className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2" style={{ color: subjColor, opacity: 0.7 }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
+                )}
+              </div>
 
+              {/* Plan Input */}
+              <div className="flex-1 min-w-0 flex items-center bg-surface-2/30 rounded pl-1.5 pr-1">
                 <DebouncedInput
                   value={entry.note}
                   onChange={(val) => handleNoteChange(entry.id, entry.subject, val)}
-                  disabled={!isEditorMode}
+                  disabled={!isEditorMode || past}
                   placeholder="What's the plan?"
                   maxLength={50}
                 />
               </div>
 
+              {/* Notify toggle */}
+              <button
+                onClick={() => toggleNotify(entry.id)}
+                className={`w-6 h-6 flex items-center justify-center shrink-0 rounded transition-colors ${
+                  entry.notifyEnabled ? 'text-warning bg-warning/10 hover:bg-warning/20' : 'text-text-3/40 hover:text-text-3/80 hover:bg-surface-2'
+                }`}
+                aria-label="Toggle notification"
+                title="Toggle reminder"
+              >
+                <Bell size={12} />
+              </button>
+
               {/* Tick button */}
               <button
                 onClick={() => handleToggleTick(entry.id)}
                 disabled={!entry.note}
-                className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${entry.ticked
-                    ? 'bg-success text-white'
+                className={`w-6 h-6 rounded flex items-center justify-center shrink-0 transition-colors ${
+                  entry.ticked
+                    ? 'bg-success/20 border border-success/30 text-success'
                     : entry.note
-                      ? 'border border-border/60 hover:border-success text-text-3'
+                      ? 'border border-border/60 hover:border-success text-text-3 cursor-pointer hover:bg-surface-2'
                       : 'border border-border/20 opacity-30 cursor-not-allowed'
                   }`}
                 aria-label={entry.ticked ? 'Mark undone' : 'Mark done'}
               >
-                {entry.ticked && <Check size={10} />}
-              </button>
-
-              {/* Notify toggle */}
-              <button
-                onClick={() => toggleNotify(entry.id)}
-                className={`w-5 h-5 flex items-center justify-center shrink-0 transition-colors ${entry.notifyEnabled ? 'text-warning' : 'text-text-3/20'
-                  } ${!entry.note ? 'opacity-0' : ''}`}
-                aria-label="Toggle notification"
-              >
-                <Bell size={10} />
+                {entry.ticked && <Check size={12} />}
               </button>
             </div>
           );
         })}
-        {entries.length > 0 && isEditorMode && (
+        {entries.length > 0 && isEditorMode && !past && (
           <button
             onClick={addPlan}
             className="w-full mt-1.5 py-1.5 flex items-center justify-center gap-1.5 text-[10px] font-semibold text-text-3 hover:text-accent hover:bg-surface-2 rounded transition-colors"
