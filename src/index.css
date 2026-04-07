@@ -444,3 +444,25 @@ input[type="number"] {
   border: none;
   margin: 0;
 }
+
+/* ===== TOP BAR DATE TICKER ANIMATION (based on reference) ===== */
+@keyframes dateTickerItem1 {
+  0%, 43% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(-100%); opacity: 0; }
+  51%, 93% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes dateTickerItem2 {
+  0%, 43% { transform: translateY(100%); opacity: 0; }
+  50%, 93% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-100%); opacity: 0; }
+}
+
+.date-ticker-item-1 {
+  animation: dateTickerItem1 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.date-ticker-item-2 {
+  animation: dateTickerItem2 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

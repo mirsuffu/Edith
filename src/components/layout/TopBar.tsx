@@ -17,16 +17,6 @@ export const TopBar: React.FC = () => {
   const user = useAppStore((s) => s.user);
   const stats = useStats();
 
-  // Alternating countdown: 0 = lectures deadline, 1 = exam deadline
-  const [showExam, setShowExam] = useState(false);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setShowExam((prev) => !prev);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
   const showName = userName && userName !== 'Student' && userName.trim() !== '';
 
   const handleManualSync = () => {
@@ -45,32 +35,40 @@ export const TopBar: React.FC = () => {
     offline: <WifiOff size={12} className="text-warning" />,
   }[syncStatus];
 
-  const daysValue = showExam ? stats.daysToExam : stats.daysToLectures;
-  const deadlineLabel = showExam ? 'Exam Deadline' : 'Lectures Deadline';
-
   return (
     <div
       className="flex items-center justify-between px-4 py-2.5 shrink-0 relative"
       style={{ zIndex: 10 }}
     >
-      {/* Left: Days remaining — alternating between lectures and exam deadline */}
+      {/* Left: Days remaining — alternating between lectures and exam deadline via CSS Keyframes */}
       <div className="flex items-center gap-2 min-w-0">
         <div className="flex flex-col items-start" style={{ minWidth: 90 }}>
           <div className="relative h-6 w-full mt-1">
-            <div className={`absolute left-0 top-0 flex items-baseline gap-1.5 transition-all duration-500 ${showExam ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-              <span className="font-mono text-lg font-bold text-text-1">{stats.daysToLectures}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">days left</span>
+            {/* Lectures Deadline Item */}
+            <div className="absolute left-0 top-0 flex items-baseline gap-1.5 date-ticker-item-1">
+              <span className="font-mono text-lg font-bold text-text-1">
+                {stats.daysToLectures}
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">
+                days left
+              </span>
             </div>
-            <div className={`absolute left-0 top-0 flex items-baseline gap-1.5 transition-all duration-500 ${!showExam ? 'opacity-0 translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-              <span className="font-mono text-lg font-bold text-text-1">{stats.daysToExam}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">days left</span>
+            {/* Exam Deadline Item */}
+            <div className="absolute left-0 top-0 flex items-baseline gap-1.5 date-ticker-item-2">
+              <span className="font-mono text-lg font-bold text-text-1">
+                {stats.daysToExam}
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">
+                days left
+              </span>
             </div>
           </div>
+          
           <div className="relative h-3 w-full mb-1">
-            <span className={`absolute left-0 top-0 text-[8px] font-medium text-text-3/70 uppercase tracking-wider leading-none transition-all duration-500 ${showExam ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+            <span className="absolute left-0 top-0 text-[8px] font-medium text-text-3/70 uppercase tracking-wider leading-none date-ticker-item-1">
               Lectures Deadline
             </span>
-            <span className={`absolute left-0 top-0 text-[8px] font-medium text-text-3/70 uppercase tracking-wider leading-none transition-all duration-500 ${!showExam ? 'opacity-0 translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+            <span className="absolute left-0 top-0 text-[8px] font-medium text-text-3/70 uppercase tracking-wider leading-none date-ticker-item-2">
               Exam Deadline
             </span>
           </div>

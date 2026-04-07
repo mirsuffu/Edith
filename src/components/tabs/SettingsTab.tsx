@@ -276,7 +276,7 @@ export const SettingsTab: React.FC = () => {
         />
       </Section>
 
-      <Section title="GitHub Connectivity" icon={<Shield size={14} />} defaultOpen={true}>
+      <Section title="GitHub Connectivity" icon={<Shield size={14} />} defaultOpen={false}>
         {isEditorMode ? (
           <div className="space-y-3">
             <p className="text-[10px] text-muted-foreground leading-relaxed">

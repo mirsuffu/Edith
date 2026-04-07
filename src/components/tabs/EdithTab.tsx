@@ -545,7 +545,11 @@ export const EdithTab: React.FC = React.memo(() => {
                   className="w-10 h-10 p-0 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95"
                   aria-label={loading ? "Stop generation" : "Send message"}
                 >
-                  {loading ? <Square size={16} fill="currentColor" /> : <Send size={16} color="currentColor" strokeWidth={2.5} />}
+                  {loading ? (
+                    <Square size={16} fill="white" stroke="white" />
+                  ) : (
+                    <Send size={18} stroke="white" strokeWidth={2.5} className="text-white" />
+                  )}
                 </Button>
               </div>
             </div>
