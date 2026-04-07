@@ -24,42 +24,43 @@ jobs:
 
           async function run() {
             const requestId = process.env.REQUEST_ID;
+            const model = process.env.AI_MODEL;
+            const messagesJson = process.env.AI_MESSAGES;
+            const temperature = parseFloat(process.env.AI_TEMPERATURE || "0.2");
+            const top_p = parseFloat(process.env.AI_TOP_P || "0.7");
+            const max_tokens = parseInt(process.env.AI_MAX_TOKENS || "1024");
+
             console.log('--- START RELAY ---');
             console.log('Request ID:', requestId);
+            console.log('Using model:', model);
             
             let db;
             try {
               if (!process.env.FIREBASE_SERVICE_ACCOUNT) throw new Error('Missing FIREBASE_SERVICE_ACCOUNT secret');
-              if (!process.env.PAYLOAD) throw new Error('Missing PAYLOAD from client');
-
+              
               // Init Firebase
               const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
               initializeApp({ credential: cert(sa) });
               db = getFirestore();
               
-              // Parse Payload
-              const payload = JSON.parse(process.env.PAYLOAD);
-              const { messages, model, temperature, top_p, max_tokens, webSearchEnabled } = payload;
+              const messages = JSON.parse(messagesJson);
               
               // Select correct NVIDIA Key
               const isSuper = model?.includes('super');
               const apiKey = isSuper ? process.env.NVIDIA_API_KEY_SUPER : process.env.NVIDIA_API_KEY_NANO;
               if (!apiKey) throw new Error(`Missing ${isSuper ? 'SUPER' : 'NANO'} API Key in Secrets`);
 
-              console.log('Using model:', model);
-
-              // Prepare Body with Thinking (if 120B)
+              // Prepare Body
               const body = {
                 model,
                 messages,
-                temperature: temperature || 1.0,
-                top_p: top_p || 1.0,
-                max_tokens: max_tokens || 1024,
+                temperature,
+                top_p,
+                max_tokens,
                 stream: false
               };
               
               if (isSuper) {
-                // Enable thinking for 120B Super
                 body.extra_body = {
                   chat_template_kwargs: { enable_thinking: true },
                   reasoning_budget: 16384
@@ -84,15 +85,10 @@ jobs:
               const data = await response.json();
               if (!data.choices || !data.choices[0]) throw new Error('AI Provider returned empty choices');
 
-              // Process Thinking content if available
               const msg = data.choices[0].message;
-              const content = msg.content;
-              const reasoning = msg.reasoning_content || null;
-
-              // Write Success
               await db.collection('ai_responses').doc(requestId).set({
-                content: content,
-                reasoning: reasoning, // We can show this in a separate bubble if we want
+                content: msg.content,
+                reasoning: msg.reasoning_content || null,
                 status: 'completed',
                 timestamp: Date.now()
               });
@@ -128,6 +124,10 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           NVIDIA_API_KEY_SUPER: ${{ secrets.NVIDIA_API_KEY_SUPER }}
           NVIDIA_API_KEY_NANO: ${{ secrets.NVIDIA_API_KEY_NANO }}
-          PAYLOAD: ${{ toJson(github.event.client_payload) }}
           REQUEST_ID: ${{ github.event.client_payload.requestId }}
+          AI_MODEL: ${{ github.event.client_payload.model }}
+          AI_MESSAGES: ${{ toJson(github.event.client_payload.messages) }}
+          AI_TEMPERATURE: ${{ github.event.client_payload.temperature }}
+          AI_TOP_P: ${{ github.event.client_payload.top_p }}
+          AI_MAX_TOKENS: ${{ github.event.client_payload.max_tokens }}
         run: node relay.js
