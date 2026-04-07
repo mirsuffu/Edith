@@ -32,9 +32,6 @@ export const WelcomeModal: React.FC = () => {
           <Button onClick={handleLetsGo} size="lg">
             Let's get it →
           </Button>
-          <Button variant="ghost" onClick={() => setShow(false)} size="lg">
-            Not now
-          </Button>
         </div>
       </div>
     </Modal>

@@ -42,7 +42,7 @@ export const TopBar: React.FC = () => {
     >
       {/* Left: Days remaining — alternating between lectures and exam deadline via CSS Keyframes */}
       <div className="flex items-center gap-2 min-w-0">
-        <div className="flex flex-col items-start" style={{ minWidth: 90 }}>
+        <div className="flex flex-col items-start overflow-hidden py-0.5" style={{ minWidth: 90 }}>
           <div className="relative h-6 w-full mt-1">
             {/* Lectures Deadline Item */}
             <div className="absolute left-0 top-0 flex items-baseline gap-1.5 date-ticker-item-1">
@@ -50,7 +50,7 @@ export const TopBar: React.FC = () => {
                 {stats.daysToLectures}
               </span>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">
-                days left
+                Days
               </span>
             </div>
             {/* Exam Deadline Item */}
@@ -59,7 +59,7 @@ export const TopBar: React.FC = () => {
                 {stats.daysToExam}
               </span>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">
-                days left
+                Days
               </span>
             </div>
           </div>
