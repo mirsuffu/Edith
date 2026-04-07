@@ -8,6 +8,7 @@ import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 export interface AIResponse {
   content: string;
+  reasoning?: string | null;
   toolCalls?: any[] | null;
   isCached?: boolean;
 }
@@ -140,20 +141,21 @@ export const sendChatMessage = async (
             const resData = snap.data();
             if (resData.status === 'completed') {
               clearTimeout(timeout); unsub(); deleteDoc(responseRef).catch(() => {});
-              resolve({ content: resData.content, toolCalls: resData.toolCalls });
+              resolve({ content: resData.content, reasoning: resData.reasoning, toolCalls: resData.toolCalls });
             } else if (resData.status === 'error') {
               clearTimeout(timeout); unsub(); deleteDoc(responseRef).catch(() => {});
-              reject(new AIError('api', resData.error || 'AI Relay failed.'));
+              reject(new AIError('api', `Relay Error: ${resData.error || 'Unknown relay failure.'}`));
             }
           }
         }, (err) => {
-          clearTimeout(timeout); unsub(); reject(new AIError('network', `Firestore error: ${err.message}`));
+          clearTimeout(timeout); unsub(); reject(new AIError('network', `Firestore polling failed: ${err.message}`));
         });
       });
-
     } catch (e: any) {
       if (e.name === 'AbortError') throw e;
-      lastError = e instanceof AIError ? e : new AIError('unknown', e.message);
+      const errorMsg = e.message || 'AI Request failed.';
+      const hint = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '' : '\n\nTip: Ensure your GitHub PAT has "repo" and "workflow" scopes enabled.';
+      lastError = new AIError(e.type || 'unknown', errorMsg + hint);
       if (attempt < AI_MAX_RETRIES) await new Promise(r => setTimeout(r, AI_RETRY_DELAY_MS));
     }
   }
