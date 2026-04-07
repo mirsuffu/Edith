@@ -81,7 +81,7 @@ export const AI_TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          subject: { type: "string", description: "The subject key." },
+          subject: { type: "string", description: "The subject key, or 'other'." },
           date: { type: "string", description: "Date in 'YYYY-MM-DD' format." },
           note: { type: "string", description: "Short note up to 50 characters." },
         },

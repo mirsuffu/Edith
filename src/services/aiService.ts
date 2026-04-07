@@ -5,6 +5,7 @@ import { calculateStats } from '@/utils/stats';
 import { SUBJECT_KEYS } from '@/constants';
 import { db } from '@/config/firebase';
 import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 export interface AIResponse {
   content: string;
@@ -63,11 +64,18 @@ export const sendChatMessage = async (
 
   for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
     try {
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const isNative = Capacitor.isNativePlatform();
+      const isLocal = !isNative && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
       const requestId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-      if (isLocal) {
-        const fetchUrl = `${AI_CONFIG.baseUrl}/chat/completions`.replace('https://integrate.api.nvidia.com', '/api/nvidia');
+      if (isLocal || isNative) {
+        let fetchUrl = `${AI_CONFIG.baseUrl}/chat/completions`;
+
+        // Only use the Vite proxy if we are truly on a local web dev server
+        if (isLocal) {
+          fetchUrl = fetchUrl.replace('https://integrate.api.nvidia.com', '/api/nvidia');
+        }
+
         const isSuper = modelId === 'super';
         const apiKey = AI_CONFIG.keys[modelId as keyof typeof AI_CONFIG.keys];
         
@@ -87,29 +95,55 @@ export const sendChatMessage = async (
           };
         }
 
-        const response = await fetch(fetchUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(body),
-          signal,
-        });
+        let content = '';
+        let toolCalls = null;
 
-        if (!response.ok) throw new AIError('api', `NVIDIA API error: ${response.status}`);
-        const json = await response.json();
-        return { content: json.choices[0].message.content, toolCalls: json.choices[0].message.tool_calls };
+        if (isNative) {
+          // Use Native HTTP to bypass CORS
+          const options = {
+            url: fetchUrl,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+            },
+            data: body,
+          };
+          const response = await CapacitorHttp.post(options);
+          if (response.status !== 200) throw new AIError('api', `NVIDIA API error: ${response.status}`);
+          content = response.data.choices[0].message.content;
+          toolCalls = response.data.choices[0].message.tool_calls;
+        } else {
+          // Use standard fetch for local web dev
+          const response = await fetch(fetchUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(body),
+            signal,
+          });
+          if (!response.ok) throw new AIError('api', `NVIDIA API error: ${response.status}`);
+          const json = await response.json();
+          content = json.choices[0].message.content;
+          toolCalls = json.choices[0].message.tool_calls;
+        }
+
+        return { content, toolCalls };
       }
 
       // PRODUCTION: GitHub Actions Relay
       const githubToken = data.githubToken;
       if (!githubToken) throw new AIError('config', 'GitHub Token missing in Settings.');
 
-      // CORS-Proxy for GitHub Dispatches (Browser security bypass)
-      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://api.github.com/repos/mirsuffu/Edith/dispatches');
+      // Native environments do not have strict CORS issues with API calls.
+      const githubApiUrl = 'https://api.github.com/repos/mirsuffu/Edith/dispatches';
+      const dispatchUrl = Capacitor.isNativePlatform() 
+        ? githubApiUrl 
+        : 'https://corsproxy.io/?' + encodeURIComponent(githubApiUrl);
       
-      const dispatchRes = await fetch(proxyUrl, {
+      const dispatchRes = await fetch(dispatchUrl, {
         method: 'POST',
         headers: {
           'Authorization': `token ${githubToken}`,

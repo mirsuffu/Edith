@@ -75,18 +75,6 @@ export const RemindersTab: React.FC = () => {
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar pb-24 md:pb-4 tab-content-enter">
-      {/* Permission prompt */}
-      {isSupported && permission === 'default' && (
-        <div className="bg-accent/10 border border-accent/20 rounded-2xl p-4 mb-4 flex items-center gap-3">
-          <Bell size={20} className="text-accent shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-text-1">Enable notifications?</p>
-            <p className="text-xs text-text-2 mt-0.5">Get reminded about upcoming study sessions and tests.</p>
-          </div>
-          <Button size="sm" onClick={requestPermission}>Allow</Button>
-        </div>
-      )}
-
       {/* Header + Add button */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display text-lg font-bold text-text-1">Reminders</h2>

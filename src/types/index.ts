@@ -62,10 +62,12 @@ export interface SyllabusChapter {
 }
 
 /* ===== Planner ===== */
+export type PlannerSubject = SubjectKey | 'other';
+
 export interface PlannerEntry {
   id: string;
   date: string;
-  subject: SubjectKey;
+  subject: PlannerSubject;
   note: string;
   ticked: boolean;
   notifyEnabled: boolean;

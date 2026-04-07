@@ -105,8 +105,10 @@ interface AppStore {
   moveSyllabusChapter: (id: string, direction: -1 | 1) => void;
 
   // Planner
+  // Planner
   updatePlannerEntry: (entry: PlannerEntry) => void;
-  togglePlannerTick: (date: string, subject: SubjectKey) => void;
+  togglePlannerTick: (id: string) => void;
+  deletePlannerEntry: (id: string) => void;
 
   // Schedule
   addScheduleItem: (item: ScheduleItem) => void;
@@ -423,11 +425,9 @@ export const useAppStore = create<AppStore>()(
 
       // === Planner ===
       updatePlannerEntry: (entry) => set((s) => {
-        const idx = s.data.progress.planner.findIndex(
-          (p) => p.date === entry.date && p.subject === entry.subject
-        );
+        const idx = s.data.progress.planner.findIndex((p) => p.id === entry.id);
         if (idx >= 0) {
-          s.data.progress.planner[idx] = { ...entry, id: entry.id || s.data.progress.planner[idx].id || generateId() };
+          s.data.progress.planner[idx] = { ...entry };
         } else {
           s.data.progress.planner.push({ ...entry, id: entry.id || generateId() });
         }
@@ -435,15 +435,19 @@ export const useAppStore = create<AppStore>()(
         saveToLocalStorage(s.data);
       }),
 
-      togglePlannerTick: (date, subject) => set((s) => {
-        const entry = s.data.progress.planner.find(
-          (p) => p.date === date && p.subject === subject
-        );
-        if (entry && entry.note.trim()) {
+      togglePlannerTick: (id) => set((s) => {
+        const entry = s.data.progress.planner.find((p) => p.id === id);
+        if (entry) {
           entry.ticked = !entry.ticked;
           s.data.updatedAt = new Date().toISOString();
           saveToLocalStorage(s.data);
         }
+      }),
+
+      deletePlannerEntry: (id) => set((s) => {
+        s.data.progress.planner = s.data.progress.planner.filter((p) => p.id !== id);
+        addLog(s.data, 'Deleted a planner entry');
+        saveToLocalStorage(s.data);
       }),
 
       // === Schedule ===

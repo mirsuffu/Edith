@@ -2,9 +2,9 @@ import React, { useState, useMemo, memo, useCallback, useRef, useEffect } from '
 import { useAppStore } from '@/store/appStore';
 import { useEditorMode } from '@/hooks/useEditorMode';
 import { SUBJECT_KEYS } from '@/constants';
-import type { SubjectKey, PlannerEntry } from '@/types';
+import type { SubjectKey, PlannerEntry, PlannerSubject } from '@/types';
 import { toLocalDateStr, getWeekDates, formatDateDDMMYY, isToday, isPast, addDays, getDayName, generateId } from '@/utils/dates';
-import { Check, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, Bell, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { toast } from '@/utils/toast';
 import { schedulePersistentNotification, cancelNotification } from '@/services/notificationService';
 
@@ -52,47 +52,68 @@ const DayCard = memo<{
   const planner = useAppStore((s) => s.data.progress.planner);
   const updatePlannerEntry = useAppStore((s) => s.updatePlannerEntry);
   const togglePlannerTick = useAppStore((s) => s.togglePlannerTick);
+  const deletePlannerEntry = useAppStore((s) => s.deletePlannerEntry);
   const { isEditorMode } = useEditorMode();
 
-  const getEntry = (date: string, subject: SubjectKey): PlannerEntry | undefined =>
-    planner.find((p) => p.date === date && p.subject === subject);
+  const entries = useMemo(() => planner.filter((p) => p.date === date), [planner, date]);
 
-  const handleNoteChange = useCallback((subject: SubjectKey, note: string) => {
+  const handleNoteChange = useCallback((id: string, subject: PlannerSubject, note: string) => {
     if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
-    const existing = getEntry(date, subject);
+    const existing = planner.find((p) => p.id === id);
+    if (existing) {
+      updatePlannerEntry({ ...existing, subject, note });
+    }
+  }, [isEditorMode, planner, updatePlannerEntry]);
+  
+  const handleSubjectChange = useCallback((id: string, subject: PlannerSubject) => {
+    if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
+    const existing = planner.find((p) => p.id === id);
+    if (existing) {
+      updatePlannerEntry({ ...existing, subject });
+    }
+  }, [isEditorMode, planner, updatePlannerEntry]);
+
+  const addPlan = useCallback(() => {
+    if (!isEditorMode) { toast.error('Enable Editor Mode first.'); return; }
     updatePlannerEntry({
-      id: existing?.id || generateId(),
-      date, subject, note,
-      ticked: existing?.ticked || false,
-      notifyEnabled: existing?.notifyEnabled || false,
-      notifyTime: existing?.notifyTime,
+      id: generateId(),
+      date,
+      subject: SUBJECT_KEYS[0],
+      note: '',
+      ticked: false,
+      notifyEnabled: false,
     });
-  }, [date, isEditorMode, planner]);
+  }, [date, isEditorMode, updatePlannerEntry]);
 
-  // Tick is unlocked (no Editor Mode needed)
-  const handleToggleTick = useCallback((subject: SubjectKey) => {
-    togglePlannerTick(date, subject);
-  }, [date]);
+  const handleDelete = useCallback((id: string) => {
+    if (!isEditorMode) return;
+    deletePlannerEntry(id);
+  }, [isEditorMode, deletePlannerEntry]);
 
-  // Notify is unlocked (no Editor Mode needed)
-  const toggleNotify = useCallback((subject: SubjectKey) => {
-    const existing = getEntry(date, subject);
+  // Tick is unlocked
+  const handleToggleTick = useCallback((id: string) => {
+    togglePlannerTick(id);
+  }, [togglePlannerTick]);
+
+  // Notify is unlocked
+  const toggleNotify = useCallback((id: string) => {
+    const existing = planner.find((p) => p.id === id);
     if (!existing?.note) return;
     const newNotify = !existing.notifyEnabled;
     updatePlannerEntry({ ...existing, notifyEnabled: newNotify });
 
     if (newNotify) {
-      // Schedule for 8:00 AM on that day
+      const subjName = existing.subject === 'other' ? 'Other' : config[existing.subject as SubjectKey]?.name || 'Study';
       schedulePersistentNotification(
-        existing.id || generateId(),
-        `Study: ${config[subject].name}`,
+        existing.id,
+        `Study: ${subjName}`,
         existing.note,
         `${date}T08:00:00`
       );
     } else {
       cancelNotification(existing.id);
     }
-  }, [date, planner]);
+  }, [date, planner, config, updatePlannerEntry]);
 
   const dateType = today ? 'today' : past ? 'past' : 'future';
 
@@ -111,43 +132,92 @@ const DayCard = memo<{
 
       {/* Subjects */}
       <div className="p-2 space-y-1">
-        {SUBJECT_KEYS.map((subj) => {
-          const entry = getEntry(date, subj);
+        {entries.length === 0 && !isEditorMode && (
+          <div className="text-center py-3 text-[11px] text-text-3 font-medium">
+            No plans for this day.
+          </div>
+        )}
+        {entries.length === 0 && isEditorMode && (
+          <button
+            onClick={addPlan}
+            className="w-full py-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-text-3 hover:text-accent border border-dashed border-border hover:border-accent/30 rounded-lg transition-colors"
+          >
+            <Plus size={12} /> Add your first plan
+          </button>
+        )}
+        
+        {entries.map((entry) => {
+          const isOther = entry.subject === 'other';
+          const subjColor = isOther ? '#64748b' : config[entry.subject as SubjectKey]?.color || '#64748b';
+          
           return (
-            <div key={subj} className="flex items-center gap-1.5">
-              {/* Subject dot */}
-              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: config[subj].color }} />
+            <div key={entry.id} className="flex items-center gap-1.5">
+              {/* Delete button (Editor Mode) */}
+              {isEditorMode && (
+                <button
+                  onClick={() => handleDelete(entry.id)}
+                  className="w-5 h-5 flex items-center justify-center text-danger/50 hover:text-danger hover:bg-danger/10 rounded transition-colors shrink-0"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
               
-              <div className="flex-1 min-w-0">
+              {/* Subject dot */}
+              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: subjColor }} />
+              
+              {/* Subject Dropdown & Plan */}
+              <div className="flex-1 flex flex-col min-w-0 pt-0.5">
+                <div className="relative w-fit">
+                  <select
+                    value={entry.subject}
+                    onChange={(e) => handleSubjectChange(entry.id, e.target.value as PlannerSubject)}
+                    disabled={!isEditorMode}
+                    className="block appearance-none bg-transparent text-[9px] font-semibold leading-none mb-0.5 border-none focus:outline-none focus:ring-0 p-0 pr-3 cursor-pointer"
+                    style={{ color: subjColor }}
+                    aria-label="Select subject"
+                  >
+                    {SUBJECT_KEYS.map(k => (
+                      <option key={k} value={k} className="text-text-1 bg-surface">{config[k]?.name}</option>
+                    ))}
+                    <option value="other" className="text-text-1 bg-surface">Other</option>
+                  </select>
+                  {/* Custom dropdown arrow to hint that it's a select */}
+                  {isEditorMode && (
+                    <div className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2" style={{ color: subjColor, opacity: 0.7 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </div>
+                  )}
+                </div>
+
                 <DebouncedInput
-                  value={entry?.note || ''}
-                  onChange={(val) => handleNoteChange(subj, val)}
+                  value={entry.note}
+                  onChange={(val) => handleNoteChange(entry.id, entry.subject, val)}
                   disabled={!isEditorMode}
-                  placeholder={config[subj].name}
+                  placeholder="What's the plan?"
                   maxLength={50}
                 />
               </div>
 
               {/* Tick button */}
               <button
-                onClick={() => handleToggleTick(subj)}
-                disabled={!entry?.note}
-                className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${entry?.ticked
+                onClick={() => handleToggleTick(entry.id)}
+                disabled={!entry.note}
+                className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${entry.ticked
                     ? 'bg-success text-white'
-                    : entry?.note
+                    : entry.note
                       ? 'border border-border/60 hover:border-success text-text-3'
                       : 'border border-border/20 opacity-30 cursor-not-allowed'
                   }`}
-                aria-label={entry?.ticked ? 'Mark undone' : 'Mark done'}
+                aria-label={entry.ticked ? 'Mark undone' : 'Mark done'}
               >
-                {entry?.ticked && <Check size={10} />}
+                {entry.ticked && <Check size={10} />}
               </button>
 
               {/* Notify toggle */}
               <button
-                onClick={() => toggleNotify(subj)}
-                className={`w-5 h-5 flex items-center justify-center shrink-0 transition-colors ${entry?.notifyEnabled ? 'text-warning' : 'text-text-3/20'
-                  } ${!entry?.note ? 'opacity-0' : ''}`}
+                onClick={() => toggleNotify(entry.id)}
+                className={`w-5 h-5 flex items-center justify-center shrink-0 transition-colors ${entry.notifyEnabled ? 'text-warning' : 'text-text-3/20'
+                  } ${!entry.note ? 'opacity-0' : ''}`}
                 aria-label="Toggle notification"
               >
                 <Bell size={10} />
@@ -155,6 +225,14 @@ const DayCard = memo<{
             </div>
           );
         })}
+        {entries.length > 0 && isEditorMode && (
+          <button
+            onClick={addPlan}
+            className="w-full mt-1.5 py-1.5 flex items-center justify-center gap-1.5 text-[10px] font-semibold text-text-3 hover:text-accent hover:bg-surface-2 rounded transition-colors"
+          >
+            <Plus size={10} /> Add Plan
+          </button>
+        )}
       </div>
     </div>
   );

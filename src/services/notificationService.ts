@@ -5,6 +5,7 @@ import { getToken } from 'firebase/messaging';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 export type NotificationFailureType = 
   | 'PERMISSION_DENIED'
@@ -32,13 +33,35 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
     if (permStatus.receive === 'prompt') {
       permStatus = await PushNotifications.requestPermissions();
     }
-    if (permStatus.receive !== 'granted') {
-      toast.error('Native Push permissions denied.');
+
+    // Create a mandatory channel for Android
+    try {
+      await LocalNotifications.createChannel({
+        id: 'edith-notifications',
+        name: 'Edith Notifications',
+        description: 'Study reminders and task alerts',
+        importance: 5, // High importance
+        visibility: 1, // Public
+        vibration: true,
+      });
+      console.log('Notification channel created: edith-notifications');
+    } catch (e) {
+      console.warn('Failed to create notification channel', e);
+    }
+
+    // Also request Local Notification permissions
+    let localStatus = await LocalNotifications.checkPermissions();
+    if (localStatus.display === 'prompt') {
+      localStatus = await LocalNotifications.requestPermissions();
+    }
+
+    if (permStatus.receive !== 'granted' || localStatus.display !== 'granted') {
+      toast.error('Notification permissions denied.');
       return 'denied';
     }
     try {
       await PushNotifications.register();
-      toast.success('Native Notifications fully enabled!');
+      toast.success('Notifications fully enabled!');
       return 'granted';
     } catch (e: any) {
       console.error('Failed to register native push', e);
@@ -164,6 +187,57 @@ export const schedulePersistentNotification = async (
 ): Promise<void> => {
   if (!isNotificationSupported()) return;
 
+  const isNative = Capacitor.isNativePlatform();
+
+  // On Native, use Local Notifications for reminders to ensure 100% reliability
+  if (isNative) {
+    try {
+      const targetDate = new Date(scheduledAt);
+      const now = new Date();
+
+      // If time is in the past, don't schedule
+      if (targetDate <= now) {
+        toast.error('Cannot schedule reminder in the past.');
+        return;
+      }
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title,
+            body,
+            id: Math.abs(id.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)) % 2147483647 || Math.floor(Math.random() * 1000000),
+            schedule: { at: targetDate, allowWhileIdle: true },
+            sound: 'default',
+            channelId: 'edith-notifications',
+            attachments: [],
+            actionTypeId: '',
+            extra: null,
+          },
+        ],
+      });
+
+      console.log('Notification scheduled locally on Android:', id);
+      toast.success('Reminder scheduled successfully!');
+
+      // Still write to Firestore for multi-device sync if user is logged in
+      const token = localStorage.getItem('fcm_token');
+      if (token) {
+        const notifRef = doc(db, 'scheduled_notifications', id);
+        await setDoc(notifRef, {
+          id, title, body, scheduledAt, targetTimeMs: targetDate.getTime(),
+          token, status: 'pending', createdAt: Date.now()
+        }, { merge: true });
+      }
+      return;
+    } catch (err: any) {
+      console.error('Native scheduling error:', err);
+      toast.error(`Local scheduling failed: ${err.message}`);
+      return;
+    }
+  }
+
+  // Web PWA fallback logic...
   const permission = Notification.permission;
   if (permission === 'denied') {
     toast.error('Notifications are blocked. Please enable them in settings.');
@@ -172,12 +246,7 @@ export const schedulePersistentNotification = async (
 
   const token = localStorage.getItem('fcm_token');
   if (!token) {
-    if (Capacitor.isNativePlatform()) {
-       toast.error('Device ID (Native Token) missing. Automatically retrying on next launch.');
-       await PushNotifications.register();
-    } else {
-       toast.error('Device ID (Token) missing. Try toggling notifications in Settings.');
-    }
+    toast.error('Device ID (Token) missing. Try toggling notifications in Settings.');
     return;
   }
 
@@ -219,7 +288,10 @@ export const cancelNotification = async (id: string): Promise<void> => {
 
   try {
     // 1. Cancel local SW timer or native scheduled
-    if (!Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform()) {
+      const numericId = Math.abs(id.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0));
+      await LocalNotifications.cancel({ notifications: [{ id: numericId }] });
+    } else {
       const reg = await navigator.serviceWorker.ready;
       reg.active?.postMessage({
         type: 'CANCEL_NOTIFICATION',
