@@ -7,7 +7,7 @@ import { isAIConfigured } from '@/config/ai';
 import { generateId } from '@/utils/dates';
 import { toast, TOAST_MESSAGES } from '@/utils/toast';
 import type { ChatSession, ChatMessage, PendingToolCall } from '@/types';
-import { Send, Plus, Brain, Trash2, MessageSquare, X, Square, Zap, Globe } from 'lucide-react';
+import { SendHorizontal, Plus, Brain, Trash2, MessageSquare, X, Square, Zap, Globe } from 'lucide-react';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -548,12 +548,11 @@ export const EdithTab: React.FC = React.memo(() => {
                   {loading ? (
                     <Square size={16} fill="white" stroke="white" />
                   ) : (
-                    <Send 
+                    <SendHorizontal 
                       size={18} 
                       stroke="white" 
                       strokeWidth={2.5} 
-                      className="text-white shrink-0"
-                      style={{ width: 18, height: 18, minWidth: 18, minHeight: 18 }}
+                      className="text-white flex-shrink-0 w-[18px] h-[18px]"
                     />
                   )}
                 </Button>
