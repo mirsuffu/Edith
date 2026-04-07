@@ -291,7 +291,7 @@ export const EdithTab: React.FC = React.memo(() => {
                 <MessageSquare size={13} className="shrink-0" />
                 <span className="text-xs font-medium truncate flex-1">{s.title}</span>
                 <button onClick={(e) => { e.stopPropagation(); setSessionToDelete(s.id); }}
-                  className="opacity-0 group-hover:opacity-100 text-danger/60 hover:text-danger p-0.5 transition-opacity" aria-label="Delete session">
+                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-danger/60 hover:text-danger p-0.5 transition-opacity" aria-label="Delete session">
                   <Trash2 size={12} />
                 </button>
               </div>
@@ -545,7 +545,7 @@ export const EdithTab: React.FC = React.memo(() => {
                   className="w-10 h-10 p-0 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95"
                   aria-label={loading ? "Stop generation" : "Send message"}
                 >
-                  {loading ? <Square size={16} fill="currentColor" /> : <Send size={16} className="text-white" />}
+                  {loading ? <Square size={16} fill="currentColor" /> : <Send size={16} color="currentColor" strokeWidth={2.5} />}
                 </Button>
               </div>
             </div>

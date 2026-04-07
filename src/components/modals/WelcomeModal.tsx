@@ -13,7 +13,7 @@ export const WelcomeModal: React.FC = () => {
 
   const handleLetsGo = () => {
     setShow(false);
-    setActiveTab('tracker');
+    setActiveTab('planner');
   };
 
   return (

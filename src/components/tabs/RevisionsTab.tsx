@@ -3,12 +3,10 @@ import { useAppStore } from '@/store/appStore';
 import { SUBJECT_KEYS } from '@/constants';
 import type { SubjectKey, SubjectConfig } from '@/types';
 import { Minus, Plus } from 'lucide-react';
-import { useCardPop } from '@/hooks/useSounds';
 
 const RevisionCard = memo<{
   subjectKey: SubjectKey; subject: SubjectConfig; current: number; index: number;
 }>(({ subjectKey, subject, current, index }) => {
-  useCardPop();
   const updateProgress = useAppStore((s) => s.updateProgress);
   const max = subject.revisions;
   const pct = max > 0 ? (current / max) * 100 : 0;

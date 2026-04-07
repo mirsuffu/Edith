@@ -6,7 +6,6 @@ import type { SubjectKey, PlannerEntry } from '@/types';
 import { toLocalDateStr, getWeekDates, formatDateDDMMYY, isToday, isPast, addDays, getDayName, generateId } from '@/utils/dates';
 import { Check, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from '@/utils/toast';
-import { useCardPop } from '@/hooks/useSounds';
 import { schedulePersistentNotification, cancelNotification } from '@/services/notificationService';
 
 /** Local-state input that only commits on blur/Enter — prevents defocus on every keystroke */
@@ -49,8 +48,6 @@ const DayCard = memo<{
   today: boolean;
   past: boolean;
 }>(({ date, today, past }) => {
-  useCardPop();
-
   const config = useAppStore((s) => s.data.config);
   const planner = useAppStore((s) => s.data.progress.planner);
   const updatePlannerEntry = useAppStore((s) => s.updatePlannerEntry);

@@ -55,21 +55,28 @@ export const TopBar: React.FC = () => {
     >
       {/* Left: Days remaining — alternating between lectures and exam deadline */}
       <div className="flex items-center gap-2 min-w-0">
-        <div className="flex flex-col items-start" style={{ minWidth: 60 }}>
-          <div className="flex items-center gap-1.5 transition-all duration-300">
-            <span className="font-mono text-lg font-bold text-text-1" key={showExam ? 'exam' : 'lec'}>
-              {daysValue}
+        <div className="flex flex-col items-start" style={{ minWidth: 90 }}>
+          <div className="relative h-6 w-full mt-1">
+            <div className={`absolute left-0 top-0 flex items-baseline gap-1.5 transition-all duration-500 ${showExam ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+              <span className="font-mono text-lg font-bold text-text-1">{stats.daysToLectures}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">days left</span>
+            </div>
+            <div className={`absolute left-0 top-0 flex items-baseline gap-1.5 transition-all duration-500 ${!showExam ? 'opacity-0 translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+              <span className="font-mono text-lg font-bold text-text-1">{stats.daysToExam}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">days left</span>
+            </div>
+          </div>
+          <div className="relative h-3 w-full mb-1">
+            <span className={`absolute left-0 top-0 text-[8px] font-medium text-text-3/70 uppercase tracking-wider leading-none transition-all duration-500 ${showExam ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+              Lectures Deadline
             </span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-3">
-              days left
+            <span className={`absolute left-0 top-0 text-[8px] font-medium text-text-3/70 uppercase tracking-wider leading-none transition-all duration-500 ${!showExam ? 'opacity-0 translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+              Exam Deadline
             </span>
           </div>
-          <span className="text-[8px] font-medium text-text-3/70 uppercase tracking-wider leading-none mt-0.5 transition-all duration-300">
-            {deadlineLabel}
-          </span>
         </div>
         {/* Sync status icon + manual sync button */}
-        <div className="flex items-center gap-1 ml-1">
+        <div className="flex items-center gap-1 ml-1 z-10">
           {syncIcon && <span>{syncIcon}</span>}
           {isFirebaseConfigured && (
             <button

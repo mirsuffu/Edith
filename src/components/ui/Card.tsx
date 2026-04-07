@@ -1,5 +1,4 @@
 import React from 'react';
-import { useCardPop } from '@/hooks/useSounds';
 
 interface CardProps {
   children: React.ReactNode;
@@ -13,8 +12,6 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({
   children, className = '', hoverable = false, glowColor, style, onClick,
 }) => {
-  useCardPop();
-
   return (
     <div
       onClick={onClick}

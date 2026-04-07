@@ -112,8 +112,8 @@ self.addEventListener('push', (event) => {
   }
 
   // Ensure title and body are available even if nested
-  const title = payload.title || (payload.notification ? payload.notification.title : 'E.D.I.T.H');
-  const body = payload.body || (payload.notification ? payload.notification.body : '');
+  const title = payload.title || payload.notification?.title || payload.data?.title || 'E.D.I.T.H';
+  const body = payload.body || payload.notification?.body || payload.data?.body || '';
 
   event.waitUntil(
     self.registration.showNotification(title, {
