@@ -548,7 +548,13 @@ export const EdithTab: React.FC = React.memo(() => {
                   {loading ? (
                     <Square size={16} fill="white" stroke="white" />
                   ) : (
-                    <Send size={18} stroke="white" strokeWidth={2.5} className="text-white" />
+                    <Send 
+                      size={18} 
+                      stroke="white" 
+                      strokeWidth={2.5} 
+                      className="text-white shrink-0"
+                      style={{ width: 18, height: 18, minWidth: 18, minHeight: 18 }}
+                    />
                   )}
                 </Button>
               </div>
