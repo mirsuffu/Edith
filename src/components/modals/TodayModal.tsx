@@ -8,97 +8,81 @@ import { Check, Clock } from 'lucide-react';
 export const TodayModal: React.FC = () => {
   const show = useAppStore((s) => s.showTodayModal);
   const setShow = useAppStore((s) => s.setShowTodayModal);
-  const planner = useAppStore((s) => s.data.progress.planner);
   const schedule = useAppStore((s) => s.data.progress.schedule);
   const config = useAppStore((s) => s.data.config);
-  const togglePlannerTick = useAppStore((s) => s.togglePlannerTick);
   const toggleScheduleComplete = useAppStore((s) => s.toggleScheduleComplete);
 
   const today = toLocalDateStr();
+  const viewDayIndex = new Date(today + 'T12:00:00').getDay();
 
-  const todayPlanner = planner.filter((p) => p.date === today);
-
-  // Get schedule items: today-specific + fixed schedule items
-  const todaySchedule = schedule
-    .filter((s) => s.date === today || s.date === '__fixed__')
+  const oneDayItems = schedule
+    .filter((s) => s.date === today)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const fixedItems = schedule
+    .filter((s) => s.date === '__fixed__' && (!s.daysOfWeek || s.daysOfWeek.includes(viewDayIndex)))
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const hasAnything = oneDayItems.length > 0 || fixedItems.length > 0;
+
+  const ItemRow = ({ item, isOneDay }: { item: any, isOneDay: boolean }) => {
+    const isDone = isOneDay ? item.completed : item.completedDates?.includes(today);
+    return (
+      <div className={`flex items-center gap-3 p-3 rounded-xl bg-surface-2 border transition-all ${
+        isOneDay ? 'border-danger/20 bg-danger/5' : 'border-border'
+      } ${isDone ? 'opacity-60' : ''}`}>
+        <span className="font-mono text-xs text-text-2 w-12 shrink-0">{item.startTime}</span>
+        <div className="flex-1 min-w-0">
+           <div className="text-sm font-medium text-text-1 truncate">{item.customTitle}</div>
+           {item.durationMinutes > 0 && (
+             <span className="text-[10px] text-text-3 flex items-center gap-1">
+               <Clock size={10} />{item.durationMinutes}m
+             </span>
+           )}
+        </div>
+        <button
+          onClick={() => toggleScheduleComplete(item.id)}
+          className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${
+            isDone
+              ? 'bg-success/20 border-success/30 text-success'
+              : 'border-border hover:border-accent bg-surface'
+          }`}
+          aria-label={isDone ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {isDone && <Check size={14} />}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <Modal open={show} onClose={() => setShow(false)} title={`📅 Today — ${formatFullDate(today)}`} maxWidth="max-w-lg">
-      <div className="p-5 overflow-y-auto no-scrollbar max-h-[60vh] space-y-6">
+      <div className="p-5 overflow-y-auto no-scrollbar max-h-[70vh] space-y-6">
 
-        {/* Schedule section */}
-        {todaySchedule.length > 0 && (
-          <div>
-            <h3 className="text-[10px] uppercase font-bold tracking-widest text-text-3 mb-3">Schedule</h3>
+        {oneDayItems.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-[10px] uppercase font-bold tracking-widest text-danger/70 pl-1">One-Day Schedule</h3>
             <div className="space-y-2">
-              {todaySchedule.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className="font-mono text-xs text-text-2 w-12 shrink-0">{item.startTime}</span>
-                  <span className="flex-1 text-sm font-medium text-text-1 truncate">{item.customTitle}</span>
-                  {item.durationMinutes > 0 && (
-                    <span className="text-[10px] text-text-3 flex items-center gap-1">
-                      <Clock size={10} />{item.durationMinutes}m
-                    </span>
-                  )}
-                  <button
-                    onClick={() => toggleScheduleComplete(item.id)}
-                    className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-colors ${
-                      item.completed
-                        ? 'bg-success/20 border-success/30 text-success'
-                        : 'border-border hover:border-accent'
-                    }`}
-                    aria-label={item.completed ? 'Mark incomplete' : 'Mark complete'}
-                  >
-                    {item.completed && <Check size={14} />}
-                  </button>
-                </div>
-              ))}
+              {oneDayItems.map(item => <ItemRow key={item.id} item={item} isOneDay={true} />)}
             </div>
           </div>
         )}
 
-        {/* Planner section */}
-        {todayPlanner.length > 0 && (
-          <div>
-            <h3 className="text-[10px] uppercase font-bold tracking-widest text-text-3 mb-3">Planner</h3>
-            <div className="space-y-1.5">
-              {todayPlanner.map((entry) => {
-                const isOther = entry.subject === 'other';
-                const name = isOther ? 'Other' : config[entry.subject as SubjectKey]?.name || 'Study';
-                const color = isOther ? '#64748b' : config[entry.subject as SubjectKey]?.color || '#64748b';
-                
-                return (
-                  <div key={entry.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-2 border border-border">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <span className="text-sm font-medium text-text-1 w-28 shrink-0">{name}</span>
-                    <span className={`flex-1 text-xs truncate ${entry.note ? 'text-text-2' : 'text-text-3'}`}>
-                      {entry.note || '—'}
-                    </span>
-                    <button
-                      onClick={() => entry.note && togglePlannerTick(entry.id)}
-                      disabled={!entry.note}
-                      className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-colors ${
-                        entry.ticked
-                          ? 'bg-success/20 border-success/30 text-success'
-                          : entry.note
-                            ? 'border-border hover:border-accent cursor-pointer'
-                            : 'border-border/50 opacity-30 cursor-not-allowed'
-                      }`}
-                      aria-label={entry.ticked ? 'Unmark' : 'Mark done'}
-                    >
-                      {entry.ticked && <Check size={14} />}
-                    </button>
-                  </div>
-                );
-              })}
+        {fixedItems.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-[10px] uppercase font-bold tracking-widest text-text-3 pl-1">Fixed Schedules</h3>
+            <div className="space-y-2">
+              {fixedItems.map(item => <ItemRow key={item.id} item={item} isOneDay={false} />)}
             </div>
           </div>
         )}
 
-        {todaySchedule.length === 0 && todayPlanner.length === 0 && (
-          <div className="text-center py-8 text-text-3 text-sm">
-            Nothing planned for today. Hit the Planner or Schedule tab to set things up.
+        {!hasAnything && (
+          <div className="text-center py-12 text-text-3 text-sm flex flex-col items-center gap-3">
+             <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center opacity-40">
+               <Clock size={24} />
+             </div>
+             Nothing scheduled for today.
           </div>
         )}
       </div>

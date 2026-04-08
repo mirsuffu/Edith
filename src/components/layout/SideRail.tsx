@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 const navItems: { id: TabName; label: string; icon: React.ReactNode }[] = [
-  { id: 'planner',     label: 'Planner',     icon: <Calendar size={20} /> },
+  { id: 'planner',     label: 'Schedule',    icon: <Calendar size={20} /> },
   { id: 'tracker',     label: 'Tracker',     icon: <BookOpen size={20} /> },
   { id: 'performance', label: 'Performance', icon: <PieChart size={20} /> },
   { id: 'edith',       label: 'Edith AI',    icon: <MessageSquare size={20} /> },

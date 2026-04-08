@@ -472,7 +472,20 @@ export const useAppStore = create<AppStore>()(
 
       toggleScheduleComplete: (id) => set((s) => {
         const item = s.data.progress.schedule.find((i) => i.id === id);
-        if (item) item.completed = !item.completed;
+        if (item) {
+          if (item.date === '__fixed__') {
+            const today = toLocalDateStr();
+            if (!item.completedDates) item.completedDates = [];
+            const idx = item.completedDates.indexOf(today);
+            if (idx >= 0) {
+              item.completedDates.splice(idx, 1);
+            } else {
+              item.completedDates.push(today);
+            }
+          } else {
+            item.completed = !item.completed;
+          }
+        }
         s.data.updatedAt = new Date().toISOString();
         saveToLocalStorage(s.data);
       }),

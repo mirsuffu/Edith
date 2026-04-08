@@ -4,7 +4,7 @@ import type { TabName } from '@/types';
 import { BookOpen, Calendar, PieChart, MessageSquare, Settings } from 'lucide-react';
 
 const bottomItems: { id: TabName; label: string; icon: React.ReactNode }[] = [
-  { id: 'planner',     label: 'Planner',   icon: <Calendar size={20} /> },
+  { id: 'planner',     label: 'Schedule',  icon: <Calendar size={20} /> },
   { id: 'tracker',     label: 'Tracker',   icon: <BookOpen size={20} /> },
   { id: 'performance', label: 'Metrics',   icon: <PieChart size={20} /> },
   { id: 'edith',       label: 'Edith',     icon: <MessageSquare size={20} /> },

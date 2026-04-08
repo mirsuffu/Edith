@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { useStats } from '@/hooks/useStats';
-import { Sparkles, Loader, WifiOff, AlertTriangle, RefreshCcw } from 'lucide-react';
+import { Sparkles, Loader, WifiOff, AlertTriangle, RefreshCcw, Clock } from 'lucide-react';
 import { debouncedFirestoreSync } from '@/services/firestoreService';
 import { isFirebaseConfigured } from '@/config/firebase';
 import { toast } from '@/utils/toast';
@@ -96,15 +96,30 @@ export const TopBar: React.FC = () => {
         </span>
       )}
 
-      {/* Right: Today button */}
-      <button
-        onClick={() => setShowTodayModal(true)}
-        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-bold hover:bg-accent/15 transition-colors active:scale-95"
-        aria-label="Open today's overview"
-      >
-        <Sparkles size={14} />
-        Today
-      </button>
+      {/* Right: Metrics + Today button */}
+      <div className="flex items-center gap-3">
+        {/* Streak & Pace */}
+        <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-full bg-surface-2/50 border border-border/50">
+          <div className="flex items-center gap-1.5" title="Daily Streak">
+            <span className="text-warning"><Sparkles size={12} fill="currentColor" /></span>
+            <span className="font-mono text-[11px] font-bold text-text-1">{stats.streak}D</span>
+          </div>
+          <div className="w-px h-3 bg-border" />
+          <div className="flex items-center gap-1.5" title="Required Pace (Lectures/Day)">
+            <span className="text-accent"><Clock size={12} /></span>
+            <span className="font-mono text-[11px] font-bold text-text-1">{stats.requiredPerDay} L/D</span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowTodayModal(true)}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-bold hover:bg-accent/15 transition-colors active:scale-95"
+          aria-label="Open today's overview"
+        >
+          <Sparkles size={14} />
+          Today
+        </button>
+      </div>
     </div>
   );
 };

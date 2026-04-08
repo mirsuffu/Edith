@@ -84,6 +84,8 @@ export interface ScheduleItem {
   durationMinutes: number;
   notifyEnabled: boolean;
   completed: boolean;
+  daysOfWeek?: number[]; // [0-6] where 0 is Sunday
+  completedDates?: string[]; // ['YYYY-MM-DD'] for fixed items
 }
 
 /* ===== Tests ===== */
